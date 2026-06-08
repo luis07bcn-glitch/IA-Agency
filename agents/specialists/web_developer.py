@@ -25,11 +25,15 @@ class WebDeveloperAgent:
     def __init__(self):
         self.client = Anthropic(api_key=settings.anthropic_api_key)
 
-    def run(self, task: str) -> str:
-        response = self.client.messages.create(
+    def run(self, task: str, max_tokens: int = 16000) -> str:
+        chunks = []
+        with self.client.beta.messages.stream(
             model=settings.default_model,
-            max_tokens=8096,
+            max_tokens=max_tokens,
             system=_SYSTEM,
             messages=[{"role": "user", "content": task}],
-        )
-        return response.content[0].text
+            betas=["output-128k-2025-02-19"],
+        ) as stream:
+            for text in stream.text_stream:
+                chunks.append(text)
+        return "".join(chunks)
