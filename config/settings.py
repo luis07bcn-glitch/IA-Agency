@@ -13,9 +13,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     debug: bool = False
 
-    class Config:
-        env_file = BASE_DIR / ".env"
-        env_file_encoding = "utf-8"
+    model_config = {
+        "env_file": str(BASE_DIR / ".env"),
+        "env_file_encoding": "utf-8",
+    }
 
 
 settings = Settings()

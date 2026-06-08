@@ -4,11 +4,12 @@ langchain>=0.2.0
 langchain-anthropic>=0.1.0
 
 # Orchestration
-crewai>=0.28.0
+# crewai>=0.28.0  # pendiente: no soporta Python 3.14 aún (requiere <3.14)
 
 # Utilities
 python-dotenv>=1.0.0
 pydantic>=2.0.0
+pydantic-settings>=2.0.0
 rich>=13.0.0
 typer>=0.12.0
 

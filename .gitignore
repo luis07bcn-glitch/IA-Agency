@@ -51,3 +51,7 @@ Thumbs.db
 # Memory / state
 memory/*.json
 memory/*.db
+
+# Generated outputs (keep directory)
+outputs/*
+!outputs/.gitkeep
