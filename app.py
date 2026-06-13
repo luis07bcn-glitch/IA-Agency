@@ -1682,7 +1682,7 @@ elif page == "🎯 ProspectorIA":
                     f"incluye: {', '.join(reco_pak['servicios'])}."
                 )
 
-        col_cfg_o1, col_cfg_o2 = st.columns(2)
+        col_cfg_o1, col_cfg_o2, col_cfg_o3 = st.columns(3)
         nombre_agencia_o = col_cfg_o1.text_input(
             "Tu agencia", value=st.session_state.ps_agencia, key="ps_agencia_o"
         )
@@ -1692,11 +1692,41 @@ elif page == "🎯 ProspectorIA":
             placeholder="Si lo conoces, el email irá personalizado",
             key="ps_dest_nombre",
         )
+        contacto_o = col_cfg_o3.text_input(
+            "Tu contacto (informe)",
+            placeholder="email · teléfono · web",
+            key="ps_contacto_o",
+        )
+
+        # ── Informe de diagnóstico white-label (el caballo de Troya) ───────
+        from agents.specialists.prospector import generar_informe_html
+        falta_pricing = not (sel.scorecard or sel.perdidas or sel.paquetes)
+        with st.container():
+            ci1, ci2 = st.columns([3, 2])
+            ci1.markdown(
+                "**📄 Informe de diagnóstico white-label** — documento profesional con "
+                "tu marca, sus datos reales, lo que pierde y la solución con ROI. "
+                "Para enviar antes de la reunión o llevar impreso."
+            )
+            if falta_pricing:
+                ci2.caption("Pasa por el paso 5 (Pricing) para incluir solución y ROI en el informe.")
+            html_informe = generar_informe_html(
+                sel, agencia=nombre_agencia_o, contacto=contacto_o
+            )
+            ci2.download_button(
+                "⬇️ Descargar informe (HTML)",
+                data=html_informe.encode("utf-8"),
+                file_name=f"diagnostico_{b.nombre.replace(' ', '_')[:30]}.html",
+                mime="text/html",
+                type="primary",
+                key="ps_dl_informe",
+                help="Ábrelo en el navegador y Ctrl+P para guardarlo como PDF.",
+            )
 
         (tab_email, tab_wa, tab_llamada, tab_propuesta,
-         tab_demo, tab_landing, tab_present) = st.tabs(
+         tab_demo, tab_landing, tab_present, tab_secuencia) = st.tabs(
             ["📧 Email", "💬 WhatsApp", "📞 Script", "📄 Propuesta",
-             "🎁 Demo", "🖥️ Landing", "📊 Presentación"]
+             "🎁 Demo", "🖥️ Landing", "📊 Presentación", "🔁 Secuencia"]
         )
 
         def _agent_o():
@@ -1889,6 +1919,37 @@ elif page == "🎯 ProspectorIA":
                 )
                 if col_regpr.button("🔄 Regenerar", key="ps_regen_present"):
                     sel.presentacion_prompt = None
+                    st.rerun()
+
+        # ── Secuencia de seguimiento ───────────────────────────────────────
+        with tab_secuencia:
+            st.caption("Cadencia de 5 toques en 14 días tras el primer email. Cada toque aporta valor, no solo '¿lo viste?'.")
+            if not sel.secuencia_seguimiento:
+                if st.button("🔁 Generar secuencia de seguimiento", type="primary", key="ps_gen_secuencia"):
+                    with st.spinner("Diseñando la cadencia de seguimiento…"):
+                        ag = _agent_o()
+                        sel.secuencia_seguimiento = ag.offer_gen.generar_secuencia(b, sel.pains, negativas)
+                        ag.crm.guardar(sel)
+                    st.rerun()
+            else:
+                CANAL_ICO = {"WhatsApp": "💬", "Email": "📧", "Llamada": "📞", "LinkedIn": "🔗"}
+                for t in sel.secuencia_seguimiento:
+                    ico = CANAL_ICO.get(t.get("canal", ""), "•")
+                    with st.expander(f"📅 Día {t.get('dia','?')} · {ico} {t.get('canal','')} — {t.get('titulo','')}", expanded=False):
+                        st.write(t.get("mensaje", ""))
+                # Exportar toda la secuencia
+                texto_sec = "\n\n".join(
+                    f"DÍA {t.get('dia')} · {t.get('canal')} — {t.get('titulo')}\n{t.get('mensaje')}"
+                    for t in sel.secuencia_seguimiento
+                )
+                col_dls, col_regs = st.columns(2)
+                col_dls.download_button(
+                    "⬇️ Descargar secuencia .txt",
+                    data=texto_sec.encode("utf-8"),
+                    file_name=f"secuencia_{b.nombre[:25].replace(' ','_')}.txt",
+                )
+                if col_regs.button("🔄 Regenerar", key="ps_regen_secuencia"):
+                    sel.secuencia_seguimiento = []
                     st.rerun()
 
         st.divider()

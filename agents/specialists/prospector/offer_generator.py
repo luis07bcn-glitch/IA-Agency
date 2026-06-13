@@ -332,6 +332,67 @@ Devuelve SOLO el prompt para Gamma, listo para pegar."""
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
+    # ── Secuencia de seguimiento multicanal ────────────────────────────────────
+
+    def generar_secuencia(
+        self,
+        business: Business,
+        pains: List[PainPoint],
+        resenas_negativas: List[Resena],
+    ) -> List[dict]:
+        """
+        Genera una secuencia de seguimiento de 5 toques en 14 días (cadencia
+        probada: aportar valor, no solo "¿lo viste?"). Devuelve una lista de
+        toques: {dia, canal, titulo, mensaje}.
+        """
+        import json
+        contexto = self._contexto_outreach(business, pains, resenas_negativas)
+        prompt = f"""Eres un experto en ventas B2B para agencias que venden a negocios locales.
+Diseña una SECUENCIA DE SEGUIMIENTO de 5 toques en 14 días para este prospecto,
+tras un primer email ya enviado. Cada toque debe APORTAR VALOR (un dato, un
+recurso, una prueba social, una pregunta concreta), nunca solo "¿lo viste?".
+
+{contexto}
+AGENCIA: {self.nombre_agencia}
+
+Cadencia recomendada: Día 2 (WhatsApp breve), Día 4 (email con caso/valor),
+Día 7 (llamada — guion), Día 10 (WhatsApp con prueba social), Día 14 (email de
+ruptura educada que reactiva).
+
+Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+{{"secuencia": [
+  {{"dia": 2, "canal": "WhatsApp", "titulo": "...", "mensaje": "mensaje listo para copiar/pegar, en español, tono cercano"}}
+]}}"""
+        try:
+            msg = self.client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2200,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = msg.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = "\n".join(l for l in raw.splitlines() if not l.strip().startswith("```"))
+            data = json.loads(raw)
+            toques = []
+            for t in data.get("secuencia", []):
+                toques.append({
+                    "dia": int(t.get("dia", 0)),
+                    "canal": t.get("canal", ""),
+                    "titulo": t.get("titulo", ""),
+                    "mensaje": t.get("mensaje", ""),
+                })
+            return toques
+        except Exception:
+            # Fallback mínimo si Claude falla
+            return [
+                {"dia": 2, "canal": "WhatsApp", "titulo": "Recordatorio con valor",
+                 "mensaje": f"Hola, soy de {self.nombre_agencia}. Te envié un análisis de {business.nombre}. ¿Te paso el dato concreto que más te puede interesar?"},
+                {"dia": 7, "canal": "Llamada", "titulo": "Llamada de seguimiento",
+                 "mensaje": "Llamar para ofrecer 15 minutos sin compromiso y comentar el principal hallazgo."},
+                {"dia": 14, "canal": "Email", "titulo": "Email de ruptura",
+                 "mensaje": "Cierro el tema por mi parte, pero te dejo el diagnóstico por si lo quieres retomar más adelante."},
+            ]
+
     def _contexto_outreach(
         self,
         business: Business,

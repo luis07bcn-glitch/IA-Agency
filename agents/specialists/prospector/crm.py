@@ -81,6 +81,7 @@ class CRM:
         "tech_stack_json": "TEXT",
         "pagespeed_json": "TEXT",
         "competitive_json": "TEXT",
+        "secuencia_json": "TEXT",
     }
 
     def _migrar(self):
@@ -140,9 +141,9 @@ class CRM:
                  madurez_digital, percentil_nicho, win_probability, perdida_mes,
                  scorecard_json, win_json, perdidas_json,
                  propuesta_texto, demo_prompt, landing_prompt, presentacion_prompt,
-                 tech_stack_json, pagespeed_json, competitive_json)
+                 tech_stack_json, pagespeed_json, competitive_json, secuencia_json)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
-                        ?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 b.place_id, b.nombre, b.tipo, b.ciudad, b.direccion,
                 b.telefono, b.web, int(b.tiene_web),
@@ -174,6 +175,7 @@ class CRM:
                 json.dumps(result.tech_stack, ensure_ascii=False) if result.tech_stack else None,
                 json.dumps(result.pagespeed, ensure_ascii=False) if result.pagespeed else None,
                 json.dumps(result.competitive, ensure_ascii=False) if result.competitive else None,
+                json.dumps(result.secuencia_seguimiento, ensure_ascii=False) if result.secuencia_seguimiento else None,
             ))
 
     # ── Lectura ────────────────────────────────────────────────────────────────

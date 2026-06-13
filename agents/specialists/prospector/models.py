@@ -160,6 +160,7 @@ class ProspectorResult:
     demo_prompt: Optional[str] = None
     landing_prompt: Optional[str] = None
     presentacion_prompt: Optional[str] = None
+    secuencia_seguimiento: List[dict] = field(default_factory=list)  # toques de follow-up
 
     # CRM
     estado: str = "nuevo"
