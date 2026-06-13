@@ -71,8 +71,8 @@ CATALOGO: List[Servicio] = [
         descripcion="Página rápida, mobile-first, con CTA claro y captación de leads integrada.",
         setup=(900, 2800),
         mensual=(0, 0),
-        kpi="+2 pp de conversión sobre las visitas actuales",
-        uplift_conversion_pp=2.0,
+        kpi="+1,5 pp de conversión sobre las visitas actuales",
+        uplift_conversion_pp=1.5,
     ),
     Servicio(
         clave="agente_whatsapp",
@@ -81,8 +81,8 @@ CATALOGO: List[Servicio] = [
         setup=(600, 1600),
         mensual=(200, 450),
         kpi="Atiende el 100% de los leads (vs perder los de fuera de horario)",
-        uplift_leads_pct=20.0,
-        uplift_conversion_pp=1.5,
+        uplift_leads_pct=10.0,
+        uplift_conversion_pp=1.0,
     ),
     Servicio(
         clave="reservas_online",
@@ -91,7 +91,8 @@ CATALOGO: List[Servicio] = [
         setup=(500, 1200),
         mensual=(90, 220),
         kpi="-40% de no-shows y citas captadas fuera de horario",
-        uplift_conversion_pp=2.0,
+        uplift_conversion_pp=1.5,
+        uplift_leads_pct=3.0,
     ),
     Servicio(
         clave="seguimiento_fidelizacion",
@@ -99,8 +100,8 @@ CATALOGO: List[Servicio] = [
         descripcion="Follow-up post-visita, recordatorios, felicitaciones y reactivación de clientes.",
         setup=(400, 1000),
         mensual=(150, 320),
-        kpi="+20% de recurrencia e ingresos del cliente existente",
-        uplift_ingresos_pct=20.0,
+        kpi="+10% de recurrencia e ingresos del cliente existente",
+        uplift_ingresos_pct=10.0,
     ),
     Servicio(
         clave="captacion_ads",
@@ -108,8 +109,8 @@ CATALOGO: List[Servicio] = [
         descripcion="Campañas optimizadas con IA que llevan tráfico cualificado a la web/agente.",
         setup=(1200, 2000),
         mensual=(600, 2500),
-        kpi="+35% de leads nuevos al mes",
-        uplift_leads_pct=35.0,
+        kpi="+20-25% de leads nuevos al mes",
+        uplift_leads_pct=22.0,
     ),
     Servicio(
         clave="seo_local",
@@ -118,11 +119,59 @@ CATALOGO: List[Servicio] = [
         setup=(600, 1500),
         mensual=(300, 600),
         kpi="Aparecer en las búsquedas locales del nicho",
-        uplift_leads_pct=15.0,
+        uplift_leads_pct=8.0,
     ),
 ]
 
 CATALOGO_POR_CLAVE: Dict[str, Servicio] = {s.clave: s for s in CATALOGO}
+
+
+# ── Paquetes (good / better / best) ───────────────────────────────────────────
+# Anclaje de precio: presentar 3 niveles sube el ticket medio y hace que el del
+# medio parezca la opción "sensata". El descuento crece con el tamaño del pack.
+@dataclass
+class Paquete:
+    clave: str
+    nombre: str
+    tagline: str
+    servicios: tuple          # claves del CATALOGO
+    descuento_pct: float      # % de descuento sobre la suma de servicios
+    ideal_para: str
+    nivel: int                # 1=good, 2=better, 3=best
+
+
+PAQUETES: List[Paquete] = [
+    Paquete(
+        clave="esencial",
+        nombre="Esencial — Presencia que convierte",
+        tagline="Lo mínimo para dejar de perder clientes online",
+        servicios=("web_conversion", "agente_whatsapp"),
+        descuento_pct=0.0,
+        ideal_para="Negocios sin web o con web pobre que necesitan la base.",
+        nivel=1,
+    ),
+    Paquete(
+        clave="crecimiento",
+        nombre="Crecimiento — Máquina de captación",
+        tagline="Captar más, no perder ningún lead y fidelizar",
+        servicios=("web_conversion", "agente_whatsapp", "reservas_online", "seguimiento_fidelizacion"),
+        descuento_pct=10.0,
+        ideal_para="El punto óptimo: la mayoría de negocios locales activos.",
+        nivel=2,
+    ),
+    Paquete(
+        clave="dominacion",
+        nombre="Dominación Local — Líder del nicho",
+        tagline="Ser el nº1 de su zona en Google y en captación",
+        servicios=("web_conversion", "agente_whatsapp", "reservas_online",
+                   "seguimiento_fidelizacion", "captacion_ads", "seo_local"),
+        descuento_pct=15.0,
+        ideal_para="Quien quiere liderar su nicho y aplastar a la competencia.",
+        nivel=3,
+    ),
+]
+
+PAQUETES_POR_CLAVE: Dict[str, Paquete] = {p.clave: p for p in PAQUETES}
 
 
 @dataclass
@@ -143,6 +192,36 @@ class PerdidaDolor:
 
     def to_dict(self) -> dict:
         return self.__dict__.copy()
+
+
+@dataclass
+class PaqueteCotizado:
+    """Un paquete con precios calculados y su ROI proyectado para el cliente."""
+    paquete: Paquete
+    servicios: List[ServicioRecomendado]
+    setup: float            # ya con descuento aplicado
+    mensual: float          # ya con descuento aplicado
+    setup_sin_descuento: float
+    mensual_sin_descuento: float
+    recomendado: bool
+    roi: "ROI"
+
+    def to_dict(self) -> dict:
+        return {
+            "clave": self.paquete.clave,
+            "nombre": self.paquete.nombre,
+            "tagline": self.paquete.tagline,
+            "nivel": self.paquete.nivel,
+            "ideal_para": self.paquete.ideal_para,
+            "descuento_pct": self.paquete.descuento_pct,
+            "servicios": [s.servicio.nombre for s in self.servicios],
+            "setup": self.setup,
+            "mensual": self.mensual,
+            "setup_sin_descuento": self.setup_sin_descuento,
+            "mensual_sin_descuento": self.mensual_sin_descuento,
+            "recomendado": self.recomendado,
+            "roi": self.roi.to_dict(),
+        }
 
 
 @dataclass
@@ -292,26 +371,47 @@ class PricingCalculator:
         conversion_actual: float,
         ticket: float,
         servicios: List[ServicioRecomendado],
+        factor_optimismo: float = 1.0,
     ) -> ROI:
         """
         Modela el impacto combinado de los servicios seleccionados sobre los
         ingresos del cliente. Conservador: aplica los upliftes una sola vez.
+
+        factor_optimismo escala los upliftes para el simulador de escenarios:
+        0.6 conservador / 1.0 realista / 1.4 optimista.
         """
         # Situación actual
         ventas_actual = leads_mes * conversion_actual / 100
         ingresos_actual = ventas_actual * ticket
 
-        # Upliftes combinados
-        up_leads = sum(s.servicio.uplift_leads_pct for s in servicios) / 100
-        up_conv = sum(s.servicio.uplift_conversion_pp for s in servicios)
-        up_ing = sum(s.servicio.uplift_ingresos_pct for s in servicios) / 100
+        # Upliftes combinados con saturación (no se acumulan linealmente) y
+        # escalados por el factor del simulador. Techos por categoría para que
+        # los números sigan siendo creíbles aunque se sumen muchos servicios.
+        f = factor_optimismo
+
+        # Leads: OR probabilístico → 1 - Π(1 - u_i). Satura por debajo del 100%.
+        prod = 1.0
+        for s in servicios:
+            prod *= (1 - min(s.servicio.uplift_leads_pct / 100, 0.9))
+        up_leads = min((1 - prod) * f, 0.45)            # techo +45% leads
+
+        # Conversión: suma aditiva en pp, con techo de +8 pp
+        up_conv = min(sum(s.servicio.uplift_conversion_pp for s in servicios) * f, 8.0)
+
+        # Ingresos por recurrencia/LTV: techo +20%
+        up_ing = min(sum(s.servicio.uplift_ingresos_pct for s in servicios) / 100 * f, 0.20)
 
         leads_nuevo = leads_mes * (1 + up_leads)
-        conversion_nueva = min(conversion_actual + up_conv, 95.0)  # techo realista
+        conversion_nueva = min(conversion_actual + up_conv, 60.0)  # techo realista
         ventas_nuevo = leads_nuevo * conversion_nueva / 100
         ingresos_nuevo = ventas_nuevo * ticket * (1 + up_ing)
 
         ingreso_extra_mes = max(ingresos_nuevo - ingresos_actual, 0)
+        # Techo de credibilidad global: el incremento de ingresos no supera el
+        # 55% de la facturación actual (un +55% ya es un resultado excelente).
+        ingreso_extra_mes = min(ingreso_extra_mes, ingresos_actual * 0.55)
+        # Reajustar ingresos_nuevo al extra capado para que la tabla cuadre
+        ingresos_nuevo = ingresos_actual + ingreso_extra_mes
 
         inversion_setup = sum(s.setup for s in servicios)
         inversion_mensual = sum(s.mensual for s in servicios)
@@ -456,3 +556,73 @@ class PricingCalculator:
     @staticmethod
     def total_perdidas(perdidas: List[PerdidaDolor]) -> float:
         return round(sum(p.euros_mes for p in perdidas))
+
+    # ── Paquetes good/better/best + simulador ──────────────────────────────────
+    def recomendar_paquete(self, result: ProspectorResult, ticket: float) -> str:
+        """
+        Decide qué paquete marcar como 'recomendado' según el análisis.
+        Cubre los servicios que de verdad necesita, sin pasarse (anclaje al medio).
+        """
+        necesarios = {r.servicio.clave for r in self.recomendar(result, ticket)}
+        # El paquete más pequeño que cubra la mayoría de lo necesario
+        for paq in PAQUETES:  # de menor a mayor
+            cubiertos = necesarios & set(paq.servicios)
+            if necesarios and len(cubiertos) >= max(1, int(len(necesarios) * 0.7)):
+                return paq.clave
+        return "crecimiento"  # por defecto, el del medio
+
+    def cotizar_paquetes(
+        self,
+        result: ProspectorResult,
+        ticket: float,
+        leads_mes: float,
+        conversion_actual: float,
+        factor_optimismo: float = 1.0,
+    ) -> List[PaqueteCotizado]:
+        """
+        Cotiza los 3 paquetes con sus precios (con descuento) y el ROI que
+        obtendría el cliente con cada uno. Base del simulador de escenarios.
+        """
+        clave_reco = self.recomendar_paquete(result, ticket)
+        cotizados: List[PaqueteCotizado] = []
+
+        for paq in PAQUETES:
+            servicios = []
+            for clave in paq.servicios:
+                s = CATALOGO_POR_CLAVE[clave]
+                servicios.append(ServicioRecomendado(
+                    servicio=s,
+                    setup=self._precio(s.setup, ticket),
+                    mensual=self._precio(s.mensual, ticket),
+                    motivo="",
+                ))
+            setup_bruto = sum(s.setup for s in servicios)
+            mensual_bruto = sum(s.mensual for s in servicios)
+            desc = paq.descuento_pct / 100
+            setup = round(setup_bruto * (1 - desc), -1)
+            mensual = round(mensual_bruto * (1 - desc), -1)
+
+            roi = self.proyectar_roi(
+                leads_mes, conversion_actual, ticket, servicios, factor_optimismo
+            )
+            # Recalcular ROI con el precio del paquete (con descuento), no la suma bruta
+            roi.inversion_setup = setup
+            roi.inversion_mensual = mensual
+            beneficio = roi.ingreso_extra_mes - mensual
+            roi.payback_meses = round(setup / beneficio, 1) if beneficio > 0 else 999.0
+            for meses, attr in [(3, "roi_3m"), (6, "roi_6m"), (12, "roi_12m")]:
+                coste = setup + mensual * meses
+                ganancia = roi.ingreso_extra_mes * meses
+                setattr(roi, attr, round((ganancia - coste) / coste * 100, 1) if coste > 0 else 0.0)
+
+            cotizados.append(PaqueteCotizado(
+                paquete=paq,
+                servicios=servicios,
+                setup=setup,
+                mensual=mensual,
+                setup_sin_descuento=round(setup_bruto, -1),
+                mensual_sin_descuento=round(mensual_bruto, -1),
+                recomendado=(paq.clave == clave_reco),
+                roi=roi,
+            ))
+        return cotizados

@@ -153,6 +153,7 @@ class ProspectorResult:
     roi_data: Optional[dict] = None
     perdidas: List[dict] = field(default_factory=list)   # PerdidaDolor.to_dict()
     perdida_total_mes: Optional[float] = None
+    paquetes: List[dict] = field(default_factory=list)   # PaqueteCotizado.to_dict()
 
     # Assets de venta generados
     propuesta_texto: Optional[str] = None

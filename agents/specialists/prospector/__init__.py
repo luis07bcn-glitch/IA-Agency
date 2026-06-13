@@ -1,6 +1,9 @@
 from .prospector_agent import ProspectorAgent
 from .models import Business, ProspectorResult, PainPoint, Resena, ChecklistWeb
-from .pricing import PricingCalculator, ServicioRecomendado, ROI, PerdidaDolor, CATALOGO
+from .pricing import (
+    PricingCalculator, ServicioRecomendado, ROI, PerdidaDolor, CATALOGO,
+    Paquete, PaqueteCotizado, PAQUETES,
+)
 from .scorecard import (
     Scorecard, Dimension, WinProbability,
     construir_scorecard, calcular_win_probability, aplicar_benchmark,
@@ -22,6 +25,9 @@ __all__ = [
     "ROI",
     "PerdidaDolor",
     "CATALOGO",
+    "Paquete",
+    "PaqueteCotizado",
+    "PAQUETES",
     "Scorecard",
     "Dimension",
     "WinProbability",

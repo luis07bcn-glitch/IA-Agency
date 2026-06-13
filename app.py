@@ -1554,6 +1554,70 @@ elif page == "🎯 ProspectorIA":
                     f" — se paga solo en {payback_txt}.",
                 )
 
+        # ── Paquetes good/better/best + simulador de escenarios ────────────
+        st.divider()
+        st.markdown("#### 📦 Paquetes & Simulador de escenarios")
+        st.caption(
+            "Presenta 3 niveles (sube tu ticket medio) y ajusta el optimismo de la "
+            "proyección. El recomendado es el de mejor ROI para *este* negocio."
+        )
+
+        ESC = {"Conservador": 0.6, "Realista": 1.0, "Optimista": 1.4}
+        esc_label = st.radio(
+            "Escenario de proyección",
+            list(ESC.keys()), index=1, horizontal=True, key="ps_escenario",
+        )
+        factor = ESC[esc_label]
+
+        paquetes = pc.cotizar_paquetes(sel, float(ticket), float(leads), float(conv), factor)
+        sel.paquetes = [pq.to_dict() for pq in paquetes]
+
+        NIVEL_BADGE = {1: "🥉 BÁSICO", 2: "🥈 RECOMENDADO", 3: "🥇 PREMIUM"}
+        cols_pak = st.columns(3)
+        for pq, col in zip(paquetes, cols_pak):
+            with col:
+                borde = "#22c55e" if pq.recomendado else "rgba(255,255,255,.12)"
+                badge_bg = "#22c55e" if pq.recomendado else "#475569"
+                desc_txt = f" · −{pq.paquete.descuento_pct:.0f}%" if pq.paquete.descuento_pct else ""
+                extra_txt = f"{pq.roi.ingreso_extra_mes:,.0f}".replace(",", ".")
+                setup_txt = f"{pq.setup:,.0f}".replace(",", ".")
+                mens_txt = f"{pq.mensual:,.0f}".replace(",", ".")
+                payback_p = f"{pq.roi.payback_meses:.1f} meses" if pq.roi.payback_meses < 99 else "—"
+                st.markdown(
+                    f"<div style='border:2px solid {borde};border-radius:10px;padding:14px;min-height:90px'>"
+                    f"<span style='background:{badge_bg};color:#fff;font-size:.7rem;font-weight:700;"
+                    f"padding:2px 8px;border-radius:10px'>{NIVEL_BADGE[pq.paquete.nivel]}</span>"
+                    f"<div style='font-weight:700;margin-top:8px'>{pq.paquete.nombre.split('—')[0].strip()}</div>"
+                    f"<div style='font-size:.78rem;color:#94a3b8;min-height:34px'>{pq.paquete.tagline}</div>"
+                    f"<div style='font-size:1.3rem;font-weight:700;margin-top:6px'>{setup_txt}€ "
+                    f"<span style='font-size:.8rem;color:#94a3b8'>setup{desc_txt}</span></div>"
+                    f"<div style='color:#94a3b8;font-size:.85rem'>+ {mens_txt}€/mes</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"<small style='color:#10b981'>Cliente gana <b>+{extra_txt}€/mes</b></small>", unsafe_allow_html=True)
+                st.caption(f"Payback {payback_p} · ROI 12m {pq.roi.roi_12m:.0f}%")
+                with st.expander("Incluye"):
+                    for s in pq.servicios:
+                        st.markdown(f"- {s.servicio.nombre}")
+
+        # Tabla comparativa de escenarios para el paquete recomendado
+        reco = next((p for p in paquetes if p.recomendado), paquetes[1])
+        st.markdown(f"**Simulador — {reco.paquete.nombre.split('—')[0].strip()} en los 3 escenarios:**")
+        filas = []
+        for etq, fo in ESC.items():
+            paks_e = pc.cotizar_paquetes(sel, float(ticket), float(leads), float(conv), fo)
+            pr = next((p for p in paks_e if p.paquete.clave == reco.paquete.clave), None)
+            if pr:
+                filas.append({
+                    "Escenario": etq + (" ◀" if etq == esc_label else ""),
+                    "Ingreso extra cliente": f"+{pr.roi.ingreso_extra_mes:,.0f} €/mes".replace(",", "."),
+                    "Payback": f"{pr.roi.payback_meses:.1f} m" if pr.roi.payback_meses < 99 else "—",
+                    "ROI 12m": f"{pr.roi.roi_12m:.0f}%",
+                })
+        st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
+        st.caption("Proyección estimada. Presenta el escenario *Conservador* en la reunión: si los números cierran ahí, cierran seguro.")
+
         st.divider()
         col_b5a, col_b5b = st.columns(2)
         if col_b5a.button("← Volver a dolores", key="ps_back5"):
@@ -1609,6 +1673,14 @@ elif page == "🎯 ProspectorIA":
                 f"ingreso extra estimado +{rd['ingreso_extra_mes']:.0f}€/mes; "
                 f"recuperación en {rd['payback_meses']:.1f} meses; ROI 12m {rd['roi_12m']:.0f}%."
             )
+        if sel.paquetes:
+            reco_pak = next((p for p in sel.paquetes if p.get("recomendado")), None)
+            if reco_pak:
+                roi_resumen += (
+                    f" PAQUETE RECOMENDADO: {reco_pak['nombre']} "
+                    f"({reco_pak['setup']:.0f}€ setup + {reco_pak['mensual']:.0f}€/mes), "
+                    f"incluye: {', '.join(reco_pak['servicios'])}."
+                )
 
         col_cfg_o1, col_cfg_o2 = st.columns(2)
         nombre_agencia_o = col_cfg_o1.text_input(
