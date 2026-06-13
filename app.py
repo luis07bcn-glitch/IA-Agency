@@ -816,6 +816,21 @@ elif page == "🎯 ProspectorIA":
         if k not in st.session_state:
             st.session_state[k] = v
 
+    # Normalizar resultados antiguos en sesión: si se analizaron antes de añadir
+    # campos nuevos (competitive, tech_stack, etc.), rellenarlos con su valor por
+    # defecto para que la UI no falle con AttributeError.
+    from dataclasses import MISSING as _MISSING
+    from agents.specialists.prospector.models import ProspectorResult as _PR
+    for _r in st.session_state.get("ps_resultados", []):
+        for _fname, _f in _PR.__dataclass_fields__.items():
+            if not hasattr(_r, _fname):
+                if _f.default_factory is not _MISSING:
+                    setattr(_r, _fname, _f.default_factory())
+                elif _f.default is not _MISSING:
+                    setattr(_r, _fname, _f.default)
+                else:
+                    setattr(_r, _fname, None)
+
     paso = st.session_state.ps_paso
 
     # ── Barra de progreso superior ────────────────────────────────────────────
