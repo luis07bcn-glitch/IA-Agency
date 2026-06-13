@@ -5,6 +5,9 @@ from .scorecard import (
     Scorecard, Dimension, WinProbability,
     construir_scorecard, calcular_win_probability, aplicar_benchmark,
 )
+from .techstack import detectar_tech_stack, resumen_oportunidad_tech
+from .pagespeed import PageSpeedAnalyzer, PageSpeedResult
+from .competitive import analisis_competitivo, aplicar_competitivo
 from .crm import CRM, ESTADOS, ESTADO_COLORS
 
 __all__ = [
@@ -25,6 +28,12 @@ __all__ = [
     "construir_scorecard",
     "calcular_win_probability",
     "aplicar_benchmark",
+    "detectar_tech_stack",
+    "resumen_oportunidad_tech",
+    "PageSpeedAnalyzer",
+    "PageSpeedResult",
+    "analisis_competitivo",
+    "aplicar_competitivo",
     "CRM",
     "ESTADOS",
     "ESTADO_COLORS",

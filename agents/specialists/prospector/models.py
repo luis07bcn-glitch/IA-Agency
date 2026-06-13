@@ -140,6 +140,11 @@ class ProspectorResult:
     scorecard: Optional[dict] = None          # Scorecard.to_dict()
     win_probability: Optional[dict] = None     # WinProbability.to_dict()
 
+    # Datos duros (Bloque 2)
+    tech_stack: Optional[dict] = None          # {categoria: [herramientas]}
+    pagespeed: Optional[dict] = None           # PageSpeedResult.to_dict()
+    competitive: Optional[dict] = None         # análisis competitivo + battle card
+
     # Pricing & ROI (motor de ventas)
     ticket_promedio: Optional[float] = None
     leads_mensuales: Optional[int] = None

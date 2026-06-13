@@ -1257,6 +1257,87 @@ elif page == "🎯 ProspectorIA":
                     unsafe_allow_html=True,
                 )
 
+        # ── Battle Card competitivo (vs su nicho real) ─────────────────────
+        comp = sel.competitive
+        if comp:
+            st.divider()
+            st.markdown("#### ⚔️ Análisis competitivo — vs su nicho real")
+            if comp.get("es_lider"):
+                st.success(
+                    f"🏆 **{b.nombre} lidera su nicho** "
+                    f"(posición {comp['posicion']}/{comp['total']}, media del nicho {comp['media_nicho']:.0f}). "
+                    "Argumento: vender mejora marginal y defensa de su ventaja."
+                )
+            else:
+                st.markdown(
+                    f"Posición **{comp['posicion']}/{comp['total']}** en madurez digital · "
+                    f"líder: **{comp['lider_nombre']}** ({comp['lider_score']:.0f}/100) · "
+                    f"media del nicho: {comp['media_nicho']:.0f}/100"
+                )
+                if comp.get("battle_card"):
+                    st.markdown("**🗡️ Battle card — lo que la competencia tiene y él no:**")
+                    for linea in comp["battle_card"]:
+                        st.markdown(f"- {linea}")
+            if comp.get("ventajas"):
+                st.caption("✅ Ventajas a defender: " + " · ".join(comp["ventajas"]))
+
+        # ── Datos duros: Tech stack + PageSpeed real ───────────────────────
+        st.divider()
+        st.markdown("#### 🔬 Datos duros")
+        dd1, dd2 = st.columns(2)
+
+        with dd1:
+            st.markdown("**🧩 Stack tecnológico detectado**")
+            tech = sel.tech_stack
+            if not b.tiene_web:
+                st.caption("Sin web — no hay stack que detectar.")
+            elif tech:
+                for cat, tools in tech.items():
+                    st.markdown(f"<small style='color:#94a3b8'>{cat}</small>  \n{' · '.join(f'`{t}`' for t in tools)}", unsafe_allow_html=True)
+            else:
+                st.caption("No se detectaron tecnologías conocidas (web muy básica o bloqueada).")
+
+        with dd2:
+            st.markdown("**⚡ Rendimiento real (Google PageSpeed)**")
+            ps = sel.pagespeed
+            if not b.tiene_web:
+                st.caption("Sin web — no aplica.")
+            elif ps:
+                pscore = ps.get("performance_score", 0)
+                pcol = "🟢" if pscore >= 90 else "🟡" if pscore >= 50 else "🔴"
+                st.markdown(f"{pcol} **{pscore}/100** ({ps.get('estrategia','mobile')})")
+                metr = []
+                if ps.get("lcp_s") is not None:
+                    metr.append(f"LCP {ps['lcp_s']:.1f}s")
+                if ps.get("cls") is not None:
+                    metr.append(f"CLS {ps['cls']:.2f}")
+                if ps.get("fcp_s") is not None:
+                    metr.append(f"FCP {ps['fcp_s']:.1f}s")
+                if ps.get("tbt_ms") is not None:
+                    metr.append(f"TBT {ps['tbt_ms']:.0f}ms")
+                st.caption(" · ".join(metr))
+                if ps.get("lcp_s") and ps["lcp_s"] > 2.5:
+                    st.markdown(f"<small style='color:#ef4444'>⚠️ LCP {ps['lcp_s']:.1f}s — Google penaliza por encima de 2,5s</small>", unsafe_allow_html=True)
+            else:
+                st.caption("Pulsa el botón para medir el rendimiento real (~10s).")
+                if st.button("⚡ Medir PageSpeed real", key="ps_btn_pagespeed"):
+                    with st.spinner("Ejecutando Lighthouse en la web (~10s)…"):
+                        ag = ProspectorAgent(nombre_agencia=st.session_state.ps_agencia)
+                        ag.analizar_pagespeed(sel)
+                    if sel.pagespeed:
+                        st.rerun()
+                    else:
+                        st.warning(
+                            "No se pudo medir. Lo más habitual: falta habilitar **PageSpeed "
+                            "Insights API** en tu proyecto de Google Cloud y permitir que tu "
+                            "API key la use (igual que hiciste con Places API New). "
+                            "También puede ser web caída o muy lenta.",
+                            icon="⚠️",
+                        )
+
+            if ps and ps.get("screenshot"):
+                st.image(ps["screenshot"], caption="Captura real (PageSpeed)", width=180)
+
         st.divider()
 
         # ── Dos columnas: análisis web | reseñas ──────────────────────────
@@ -1509,6 +1590,18 @@ elif page == "🎯 ProspectorIA":
             if sc.get("percentil_nicho") is not None:
                 roi_resumen += f" (percentil {sc['percentil_nicho']} de su nicho)"
             roi_resumen += ". "
+        if sel.pagespeed:
+            ps = sel.pagespeed
+            roi_resumen += f"PageSpeed real {ps.get('performance_score')}/100"
+            if ps.get("lcp_s"):
+                roi_resumen += f" (LCP {ps['lcp_s']:.1f}s)"
+            roi_resumen += ". "
+        if sel.competitive and not sel.competitive.get("es_lider"):
+            cmp = sel.competitive
+            roi_resumen += (
+                f"Va por detrás de su nicho (puesto {cmp.get('posicion')}/{cmp.get('total')}, "
+                f"líder {cmp.get('lider_nombre')}). "
+            )
         if sel.roi_data:
             rd = sel.roi_data
             roi_resumen += (
@@ -1991,6 +2084,40 @@ elif page == "📊 Base de Datos":
                 crm_db.actualizar_estado(rec["id"], nuevo_estado_db, nuevas_notas_db)
                 st.success("✅ Guardado")
                 st.rerun()
+
+        # ── Datos duros: tech stack + PageSpeed + battle card ──────────────
+        dd_cols = st.columns(3)
+        if rec.get("tech_stack_json"):
+            try:
+                tech_db = _json.loads(rec["tech_stack_json"])
+            except Exception:
+                tech_db = {}
+            if tech_db:
+                with dd_cols[0]:
+                    st.markdown("**🧩 Stack**")
+                    for cat, tools in tech_db.items():
+                        st.caption(f"{cat}: {', '.join(tools)}")
+        if rec.get("pagespeed_json"):
+            try:
+                ps_db = _json.loads(rec["pagespeed_json"])
+            except Exception:
+                ps_db = {}
+            if ps_db:
+                with dd_cols[1]:
+                    pscore = ps_db.get("performance_score", 0)
+                    pcol = "🟢" if pscore >= 90 else "🟡" if pscore >= 50 else "🔴"
+                    st.markdown(f"**⚡ PageSpeed** {pcol} {pscore}/100")
+                    if ps_db.get("lcp_s"):
+                        st.caption(f"LCP {ps_db['lcp_s']:.1f}s · CLS {ps_db.get('cls','—')}")
+        if rec.get("competitive_json"):
+            try:
+                comp_db = _json.loads(rec["competitive_json"])
+            except Exception:
+                comp_db = {}
+            if comp_db and comp_db.get("battle_card"):
+                with dd_cols[2]:
+                    st.markdown(f"**⚔️ Puesto {comp_db.get('posicion')}/{comp_db.get('total')}**")
+                    st.caption(f"Líder: {comp_db.get('lider_nombre')}")
 
         # ── Dolores detectados ─────────────────────────────────────────────
         if rec.get("pains_json"):

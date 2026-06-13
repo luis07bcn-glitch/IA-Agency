@@ -6,9 +6,10 @@ import time
 import re
 import requests
 from bs4 import BeautifulSoup
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, List
 
 from .models import ChecklistWeb
+from .techstack import detectar_tech_stack
 
 HEADERS = {
     "User-Agent": (
@@ -25,13 +26,16 @@ class WebAnalyzer:
     def __init__(self, timeout: int = 10):
         self.timeout = timeout
 
-    def analizar(self, url: str) -> Tuple[ChecklistWeb, float, Optional[str]]:
+    def analizar(
+        self, url: str
+    ) -> Tuple[ChecklistWeb, float, Optional[str], Dict[str, List[str]]]:
         """
-        Analiza una URL y devuelve (ChecklistWeb, tiempo_carga_seg, nombre_propietario_detectado).
+        Analiza una URL y devuelve
+        (ChecklistWeb, tiempo_carga_seg, nombre_propietario_detectado, tech_stack).
         Si la web no responde, devuelve ChecklistWeb vacío con tiempo=99.
         """
         if not url:
-            return ChecklistWeb(), 99.0, None
+            return ChecklistWeb(), 99.0, None, {}
 
         if not url.startswith("http"):
             url = "https://" + url
@@ -45,8 +49,9 @@ class WebAnalyzer:
             tiempo_carga = time.time() - t0
             html = resp.text
             final_url = resp.url
+            resp_headers = dict(resp.headers)
         except Exception:
-            return ChecklistWeb(), 99.0, None
+            return ChecklistWeb(), 99.0, None, {}
 
         soup = BeautifulSoup(html, "lxml")
         html_lower = html.lower()
@@ -70,7 +75,8 @@ class WebAnalyzer:
         )
 
         propietario = self._detectar_propietario(soup, html)
-        return checklist, tiempo_carga, propietario
+        tech_stack = detectar_tech_stack(html, resp_headers, final_url)
+        return checklist, tiempo_carga, propietario, tech_stack
 
     # ── Checks individuales ────────────────────────────────────────────────────
 

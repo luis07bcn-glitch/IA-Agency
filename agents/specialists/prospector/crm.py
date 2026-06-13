@@ -78,6 +78,9 @@ class CRM:
         "demo_prompt": "TEXT",
         "landing_prompt": "TEXT",
         "presentacion_prompt": "TEXT",
+        "tech_stack_json": "TEXT",
+        "pagespeed_json": "TEXT",
+        "competitive_json": "TEXT",
     }
 
     def _migrar(self):
@@ -136,9 +139,10 @@ class CRM:
                  estado, notas, fecha_creacion, fecha_contacto,
                  madurez_digital, percentil_nicho, win_probability, perdida_mes,
                  scorecard_json, win_json, perdidas_json,
-                 propuesta_texto, demo_prompt, landing_prompt, presentacion_prompt)
+                 propuesta_texto, demo_prompt, landing_prompt, presentacion_prompt,
+                 tech_stack_json, pagespeed_json, competitive_json)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
-                        ?,?,?,?,?,?,?,?,?,?,?)
+                        ?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 b.place_id, b.nombre, b.tipo, b.ciudad, b.direccion,
                 b.telefono, b.web, int(b.tiene_web),
@@ -167,6 +171,9 @@ class CRM:
                 result.demo_prompt,
                 result.landing_prompt,
                 result.presentacion_prompt,
+                json.dumps(result.tech_stack, ensure_ascii=False) if result.tech_stack else None,
+                json.dumps(result.pagespeed, ensure_ascii=False) if result.pagespeed else None,
+                json.dumps(result.competitive, ensure_ascii=False) if result.competitive else None,
             ))
 
     # ── Lectura ────────────────────────────────────────────────────────────────

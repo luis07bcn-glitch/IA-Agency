@@ -21,6 +21,8 @@ from .pain_detector import PainDetector
 from .offer_generator import OfferGenerator
 from .pricing import PricingCalculator
 from .scorecard import construir_scorecard, calcular_win_probability, aplicar_benchmark
+from .competitive import aplicar_competitivo
+from .pagespeed import PageSpeedAnalyzer
 from .crm import CRM
 
 
@@ -90,9 +92,10 @@ class ProspectorAgent(BaseAgent):
         # 2. Analizar web
         if negocio.tiene_web:
             log(f"Analizando web: {negocio.web}...")
-            checklist, tiempo, propietario = self._web_analyzer.analizar(negocio.web)
+            checklist, tiempo, propietario, tech_stack = self._web_analyzer.analizar(negocio.web)
             result.web_checklist = checklist
             result.tiempo_carga = tiempo
+            result.tech_stack = tech_stack or None
             if propietario and not negocio.nombre_propietario:
                 negocio.nombre_propietario = propietario
         else:
@@ -195,6 +198,8 @@ class ProspectorAgent(BaseAgent):
             sc.score_medio_nicho = r.scorecard.get("score_medio_nicho")
             sc.tamano_muestra_nicho = r.scorecard.get("tamano_muestra_nicho")
             r.win_probability = calcular_win_probability(r, sc).to_dict()
+        # Análisis competitivo: cada negocio vs sus competidores del lote
+        aplicar_competitivo(results)
 
     def generar_outreach_completo(
         self,
@@ -219,6 +224,30 @@ class ProspectorAgent(BaseAgent):
         )
 
         self._crm.guardar(result)
+        return result
+
+    def analizar_pagespeed(
+        self,
+        result: ProspectorResult,
+        estrategia: str = "mobile",
+        google_api_key: Optional[str] = None,
+    ) -> ProspectorResult:
+        """
+        Ejecuta PageSpeed Insights real (Lighthouse) sobre la web del negocio.
+        Bajo demanda porque tarda ~5-15s. Guarda result.pagespeed y persiste.
+        """
+        b = result.business
+        if not b.tiene_web or not b.web:
+            return result
+        key = google_api_key or settings.google_places_api_key
+        ps = PageSpeedAnalyzer(api_key=key)
+        psr = ps.analizar(b.web, estrategia=estrategia)
+        if psr:
+            result.pagespeed = psr.to_dict()
+            try:
+                self._crm.guardar(result)
+            except Exception:
+                pass
         return result
 
     @property
