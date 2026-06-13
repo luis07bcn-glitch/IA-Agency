@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     default_model: str = "claude-sonnet-4-6"
 
+    # Prospector
+    google_places_api_key: str = ""
+
+    # Media
+    pexels_api_key: str = ""
+
     # App
     log_level: str = "INFO"
     debug: bool = False

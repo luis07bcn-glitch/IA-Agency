@@ -55,3 +55,7 @@ memory/*.db
 # Generated outputs (keep directory)
 outputs/*
 !outputs/.gitkeep
+
+# Credenciales YouTube/TikTok (nunca subir a git)
+client_secrets.json
+youtube_token.json
