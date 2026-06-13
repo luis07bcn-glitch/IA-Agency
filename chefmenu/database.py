@@ -152,6 +152,20 @@ def delete_plato(plato_id):
     conn.close()
 
 
+def duplicate_plato(plato_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM platos WHERE id=?", (plato_id,)).fetchone()
+    if row:
+        d = dict(row)
+        conn.execute(
+            "INSERT INTO platos (nombre, categoria, subtipo, proteina, coste_racion, tiempo_prep, alergenos, dietas, descripcion) VALUES (?,?,?,?,?,?,?,?,?)",
+            (f"{d['nombre']} (copia)", d["categoria"], d.get("subtipo",""), d.get("proteina","ninguna"),
+             d["coste_racion"], d.get("tiempo_prep", 20), d["alergenos"], d["dietas"], d.get("descripcion","")),
+        )
+    conn.commit()
+    conn.close()
+
+
 def get_despensa():
     conn = get_conn()
     rows = conn.execute("SELECT * FROM despensa ORDER BY caducidad ASC, ingrediente ASC").fetchall()

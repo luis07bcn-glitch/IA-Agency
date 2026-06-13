@@ -410,3 +410,405 @@ Responde ÚNICAMENTE con este JSON:
         if raw.startswith("json"):
             raw = raw[4:]
     return json.loads(raw.strip())
+
+
+def _parse_raw(raw: str) -> dict:
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw.strip())
+
+
+def generar_briefing(
+    menu_hoy: dict,
+    despensa: list,
+    num_cubiertos: int,
+    fecha: str,
+    hora_servicio: str = "mediodía",
+) -> dict:
+    """Genera el briefing diario de cocina: mise en place, tareas y alertas."""
+
+    primeros = [p["nombre"] for p in menu_hoy.get("primeros", [])]
+    segundos = [p["nombre"] for p in menu_hoy.get("segundos", [])]
+    postres = [p["nombre"] for p in menu_hoy.get("postres", [])]
+
+    despensa_txt = ""
+    if despensa:
+        despensa_txt = "\nDESPENSA DISPONIBLE:\n"
+        for d in despensa:
+            linea = f"- {d['ingrediente']}"
+            if d.get("cantidad"):
+                linea += f" ({d['cantidad']} {d.get('unidad','')})"
+            if d.get("caducidad") and d["caducidad"] != "None":
+                linea += f" [caduca: {d['caducidad']}]"
+            despensa_txt += linea + "\n"
+
+    prompt = (
+        "Eres el jefe de cocina mas organizado del mundo. "
+        "Genera el briefing diario completo para el equipo de cocina.\n\n"
+        f"DATOS DEL SERVICIO:\n"
+        f"- Fecha: {fecha}\n"
+        f"- Servicio: {hora_servicio}\n"
+        f"- Cubiertos esperados: {num_cubiertos}\n\n"
+        f"MENU DEL DIA:\n"
+        f"- Primeros: {', '.join(primeros) if primeros else 'No definido'}\n"
+        f"- Segundos: {', '.join(segundos) if segundos else 'No definido'}\n"
+        f"- Postres: {', '.join(postres) if postres else 'No definido'}\n"
+        f"{despensa_txt}\n"
+        f"Genera un briefing profesional. Para el mise en place calcula cantidades REALES para {num_cubiertos} cubiertos.\n\n"
+        'Responde UNICAMENTE con este JSON:\n'
+        '{\n'
+        '  "resumen_servicio": "<1 frase motivadora para el equipo>",\n'
+        '  "mise_en_place": [\n'
+        '    {\n'
+        '      "ingrediente": "<nombre>",\n'
+        f'      "cantidad_total": "<cantidad exacta para {num_cubiertos} cubiertos>",\n'
+        '      "para_plato": "<nombre del plato>",\n'
+        '      "prioridad": "alta|media|baja",\n'
+        '      "tiempo_prep": "<estimacion>",\n'
+        '      "tecnica": "<corte, coccion o temperatura clave>"\n'
+        '    }\n'
+        '  ],\n'
+        '  "orden_tareas": [\n'
+        '    {\n'
+        '      "hora": "<hora sugerida, ej: 08:00>",\n'
+        '      "tarea": "<descripcion concreta>",\n'
+        '      "responsable": "partida fría|caliente|postres|general",\n'
+        '      "duracion_min": 20\n'
+        '    }\n'
+        '  ],\n'
+        '  "alertas": ["<alerta importante>"],\n'
+        '  "consejo_servicio": "<consejo profesional para hoy, 1-2 lineas>"\n'
+        '}'
+    )
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=3000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _parse_raw(response.content[0].text.strip())
+
+
+def generar_ficha_tecnica(plato: dict) -> dict:
+    """Genera la ficha técnica completa de un plato."""
+
+    alergenos = json.loads(plato.get("alergenos", "[]"))
+    dietas = json.loads(plato.get("dietas", "[]"))
+    alergenos_str = ', '.join(alergenos) if alergenos and alergenos[0] != 'ninguno' else 'Ninguno'
+    dietas_str = ', '.join(dietas) if dietas else 'Sin restricciones especiales'
+
+    prompt = (
+        "Eres un chef tecnico experto en fichas de cocina profesionales.\n\n"
+        "Genera la ficha tecnica completa para este plato:\n"
+        f"- Nombre: {plato['nombre']}\n"
+        f"- Categoria: {plato['categoria']}\n"
+        f"- Proteina principal: {plato.get('proteina', 'ninguna')}\n"
+        f"- Coste registrado: {plato['coste_racion']}EUR/racion\n"
+        f"- Tiempo de preparacion: {plato.get('tiempo_prep', 20)} min\n"
+        f"- Alergenos: {alergenos_str}\n"
+        f"- Apto para: {dietas_str}\n"
+        f"- Descripcion base: {plato.get('descripcion', 'No especificada')}\n\n"
+        "Crea una receta realista y coherente. Cantidades para 1 racion y para 10 raciones.\n\n"
+        "Responde UNICAMENTE con un JSON con estas claves:\n"
+        "nombre, categoria, descripcion_comercial, ingredientes (array con nombre/cantidad_1/cantidad_10/precio_unitario/coste_1),\n"
+        "elaboracion (array de pasos), presentacion, temperatura_servicio, tiempo_total_prep (int minutos),\n"
+        "coste_total_1_racion (float), precio_venta_sugerido_30pct (float), precio_venta_sugerido_35pct (float),\n"
+        f"alergenos {json.dumps(alergenos)}, dietas {json.dumps(dietas)}, conservacion, consejo_chef."
+    )
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _parse_raw(response.content[0].text.strip())
+
+
+
+def ficha_a_pdf(ficha: dict, nombre_restaurante: str = "Mi Restaurante", logo_path: str = None) -> bytes:
+    """Genera PDF profesional de ficha tecnica con QR, alergenos destacados y tabla de margenes."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Table, TableStyle,
+                                    Spacer, HRFlowable, Image as RLImage, KeepTogether)
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    from reportlab.graphics.shapes import Drawing, Rect, String
+    import io as _io
+    import qrcode
+    import qrcode.image.pil
+
+    # Paleta
+    VERDE = colors.HexColor("#1b5e20")
+    VERDE_MED = colors.HexColor("#2e7d32")
+    VERDE_CLARO = colors.HexColor("#e8f5e9")
+    VERDE_BORDE = colors.HexColor("#a5d6a7")
+    GRIS_OSCURO = colors.HexColor("#263238")
+    GRIS_CLARO = colors.HexColor("#f5f5f5")
+    NARANJA = colors.HexColor("#e65100")
+    ROJO_ALERG = colors.HexColor("#b71c1c")
+    ROJO_CLARO = colors.HexColor("#ffcdd2")
+    DORADO = colors.HexColor("#f9a825")
+    BLANCO = colors.white
+
+    buffer = _io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            topMargin=1.2*cm, bottomMargin=1.5*cm,
+                            leftMargin=1.8*cm, rightMargin=1.8*cm)
+
+    styles = getSampleStyleSheet()
+    nombre_style = ParagraphStyle("nomb", parent=styles["Title"],
+                                  textColor=VERDE, fontSize=24, spaceAfter=2, leading=26)
+    resto_style = ParagraphStyle("resto", parent=styles["Normal"],
+                                 textColor=DORADO, fontSize=11, spaceAfter=0)
+    desc_style = ParagraphStyle("desc", parent=styles["Normal"],
+                                textColor=colors.HexColor("#546e7a"), fontSize=10,
+                                leading=14, spaceAfter=8, fontName="Helvetica-Oblique")
+    seccion_style = ParagraphStyle("sec", parent=styles["Heading2"],
+                                   textColor=VERDE_MED, fontSize=11, spaceBefore=10,
+                                   spaceAfter=4, borderPad=2)
+    normal = ParagraphStyle("nor", parent=styles["Normal"], fontSize=9, leading=13)
+    small = ParagraphStyle("sml", parent=styles["Normal"], fontSize=8, leading=11,
+                            textColor=colors.HexColor("#546e7a"))
+    pie_style = ParagraphStyle("pie", parent=styles["Normal"], fontSize=7,
+                               textColor=colors.grey, alignment=TA_CENTER)
+
+    story = []
+
+    # ── CABECERA con QR ──────────────────────────────────────────────────────
+    qr_data = (
+        f"FICHA TECNICA: {ficha.get('nombre','')}\n"
+        f"Categoria: {ficha.get('categoria','')}\n"
+        f"Temp. servicio: {ficha.get('temperatura_servicio','')}\n"
+        f"Alergenos: {', '.join(ficha.get('alergenos', []))}\n"
+        f"Coste/racion: {ficha.get('coste_total_1_racion', 0):.2f}EUR\n"
+        f"Generado por ChefMenu AI"
+    )
+    qr_img = qrcode.make(qr_data)
+    qr_buffer = _io.BytesIO()
+    qr_img.save(qr_buffer, format="PNG")
+    qr_buffer.seek(0)
+    qr_rl = RLImage(qr_buffer, width=2.5*cm, height=2.5*cm)
+
+    header_left = [
+        [Paragraph(nombre_restaurante, resto_style)],
+        [Paragraph(ficha.get("nombre", ""), nombre_style)],
+        [Paragraph(
+            f"<b>{ficha.get('categoria','').upper()}</b> &nbsp;|&nbsp; "
+            f"Tiempo: <b>{ficha.get('tiempo_total_prep','?')} min</b> &nbsp;|&nbsp; "
+            f"Temp.: <b>{ficha.get('temperatura_servicio','?')}</b>",
+            normal
+        )],
+    ]
+    header_table_data = [[
+        Table(header_left, colWidths=[13*cm]),
+        qr_rl,
+    ]]
+    ht = Table(header_table_data, colWidths=[13.5*cm, 3*cm])
+    ht.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+    ]))
+    story.append(ht)
+    story.append(HRFlowable(width="100%", thickness=2.5, color=VERDE_MED))
+    story.append(Spacer(1, 0.2*cm))
+
+    if ficha.get("descripcion_comercial"):
+        story.append(Paragraph(f'"{ficha["descripcion_comercial"]}"', desc_style))
+
+    # ── INGREDIENTES ─────────────────────────────────────────────────────────
+    story.append(Paragraph("INGREDIENTES", seccion_style))
+    tabla_data = [["Ingrediente", "1 ración", "10 raciones", "Precio unit.", "Coste/ración"]]
+    for ing in ficha.get("ingredientes", []):
+        tabla_data.append([
+            Paragraph(ing.get("nombre", ""), normal),
+            ing.get("cantidad_1", ""),
+            ing.get("cantidad_10", ""),
+            ing.get("precio_unitario", ""),
+            f"{ing.get('coste_1', 0):.2f}€",
+        ])
+    coste = ficha.get("coste_total_1_racion", 0)
+    tabla_data.append([
+        Paragraph("<b>COSTE TOTAL MATERIA PRIMA</b>", normal),
+        "", "", "",
+        Paragraph(f"<b>{coste:.2f}€</b>", normal),
+    ])
+
+    t = Table(tabla_data, colWidths=[5.8*cm, 2.3*cm, 2.8*cm, 2.3*cm, 2.3*cm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), VERDE_MED),
+        ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [BLANCO, GRIS_CLARO]),
+        ("BACKGROUND", (0, -1), (-1, -1), VERDE_CLARO),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.4, VERDE_BORDE),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (0, -1), 6),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── PRECIOS CON SEMAFORO DE MARGENES ────────────────────────────────────
+    story.append(Paragraph("ANÁLISIS DE MÁRGENES Y PRECIO DE VENTA", seccion_style))
+
+    pvp_28 = round(coste / 0.28, 2)
+    pvp_30 = round(coste / 0.30, 2)
+    pvp_32 = round(coste / 0.32, 2)
+    pvp_35 = round(coste / 0.35, 2)
+
+    margen_data = [
+        ["Food Cost %", "PVP sugerido", "Margen bruto", "Recomendación"],
+        ["28%", f"{pvp_28:.2f}€", f"{pvp_28 - coste:.2f}€", "Excelente — margen alto"],
+        ["30%", f"{pvp_30:.2f}€", f"{pvp_30 - coste:.2f}€", "Ideal — estándar sector"],
+        ["32%", f"{pvp_32:.2f}€", f"{pvp_32 - coste:.2f}€", "Aceptable — margen ajustado"],
+        ["35%", f"{pvp_35:.2f}€", f"{pvp_35 - coste:.2f}€", "Limite — revisar costes"],
+    ]
+    colores_fila = [
+        colors.HexColor("#1b5e20"),  # header
+        colors.HexColor("#e8f5e9"),  # 28% verde
+        colors.HexColor("#f1f8e9"),  # 30% verde claro
+        colors.HexColor("#fff8e1"),  # 32% amarillo
+        colors.HexColor("#fbe9e7"),  # 35% naranja claro
+    ]
+    tm = Table(margen_data, colWidths=[2.5*cm, 3.5*cm, 3.5*cm, 7*cm])
+    tm_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), VERDE_MED),
+        ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.4, VERDE_BORDE),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (1, 1), (1, -1), "Helvetica-Bold"),
+        # Fondo recomendado (30%)
+        ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#c8e6c9")),
+        ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
+    ]
+    for i, color in enumerate(colores_fila[1:], 1):
+        if i != 2:
+            tm_style.append(("BACKGROUND", (0, i), (-1, i), color))
+    tm.setStyle(TableStyle(tm_style))
+    story.append(tm)
+    story.append(Paragraph(
+        "★ <b>PVP recomendado (30% food cost): " + f"{pvp_30:.2f}€</b> — margen bruto: {pvp_30 - coste:.2f}€",
+        ParagraphStyle("rec", parent=styles["Normal"], fontSize=10, textColor=VERDE,
+                       fontName="Helvetica-Bold", spaceBefore=4)
+    ))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── ELABORACION ──────────────────────────────────────────────────────────
+    story.append(Paragraph("ELABORACIÓN", seccion_style))
+    for i, paso in enumerate(ficha.get("elaboracion", []), 1):
+        story.append(Paragraph(f"<b>{i}.</b> {paso}", normal))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── PRESENTACION + CONSERVACION ──────────────────────────────────────────
+    datos_extra = [
+        [Paragraph("<b>PRESENTACIÓN</b>", normal), Paragraph("<b>CONSERVACIÓN</b>", normal)],
+        [Paragraph(ficha.get("presentacion", "-"), normal),
+         Paragraph(ficha.get("conservacion", "-"), normal)],
+    ]
+    t2 = Table(datos_extra, colWidths=[8.5*cm, 8.5*cm])
+    t2.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GRIS_CLARO),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(t2)
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── ALERGENOS DESTACADOS ─────────────────────────────────────────────────
+    story.append(Paragraph("ALÉRGENOS Y PERFIL DIETÉTICO", seccion_style))
+
+    ALERG_ICONOS = {
+        "gluten": "🌾 Gluten", "lactosa": "🥛 Lacteos", "huevo": "🥚 Huevo",
+        "pescado": "🐟 Pescado", "marisco": "🦐 Marisco", "frutos_secos": "🥜 Frutos secos",
+        "soja": "🫘 Soja", "apio": "🌿 Apio",
+    }
+    DIETA_ICONOS = {
+        "vegano": "🌱 Vegano", "vegetariano": "🥗 Vegetariano",
+        "sin_gluten": "✅ Sin gluten", "sin_lactosa": "✅ Sin lactosa",
+    }
+
+    alergenos = ficha.get("alergenos", [])
+    dietas = ficha.get("dietas", [])
+
+    alerg_presentes = [ALERG_ICONOS.get(a, a) for a in alergenos if a and a != "ninguno"]
+    dietas_presentes = [DIETA_ICONOS.get(d, d) for d in dietas]
+
+    alerg_row = []
+    for nombre_a in alerg_presentes:
+        alerg_row.append(Paragraph(nombre_a, ParagraphStyle(
+            "al", parent=styles["Normal"], fontSize=8, textColor=ROJO_ALERG,
+            fontName="Helvetica-Bold", alignment=TA_CENTER)))
+
+    dieta_row = []
+    for nombre_d in dietas_presentes:
+        dieta_row.append(Paragraph(nombre_d, ParagraphStyle(
+            "di", parent=styles["Normal"], fontSize=8, textColor=VERDE,
+            fontName="Helvetica-Bold", alignment=TA_CENTER)))
+
+    alerg_label = "SIN ALÉRGENOS DECLARADOS" if not alerg_presentes else f"Contiene: {', '.join(alerg_presentes)}"
+    dieta_label = "Sin etiquetas dietéticas" if not dietas_presentes else f"Apto para: {', '.join(dietas_presentes)}"
+
+    alerg_table_data = [
+        [Paragraph(f"<b>⚠ ALÉRGENOS:</b> {alerg_label}", ParagraphStyle(
+            "alh", parent=styles["Normal"], fontSize=9,
+            textColor=ROJO_ALERG if alerg_presentes else VERDE))],
+        [Paragraph(f"<b>✓ DIETAS:</b> {dieta_label}", ParagraphStyle(
+            "dih", parent=styles["Normal"], fontSize=9, textColor=VERDE))],
+    ]
+    ta = Table(alerg_table_data, colWidths=[16.5*cm])
+    ta.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), ROJO_CLARO if alerg_presentes else VERDE_CLARO),
+        ("BACKGROUND", (0, 1), (-1, 1), VERDE_CLARO),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    story.append(ta)
+
+    # ── CONSEJO DEL CHEF ─────────────────────────────────────────────────────
+    if ficha.get("consejo_chef"):
+        story.append(Spacer(1, 0.3*cm))
+        consejo_data = [[
+            Paragraph(f"<b>Consejo del chef</b><br/><i>{ficha['consejo_chef']}</i>", normal)
+        ]]
+        tc = Table(consejo_data, colWidths=[16.5*cm])
+        tc.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fff8e1")),
+            ("LEFTBORDERPADDING", (0, 0), (-1, -1), 10),
+            ("BOX", (0, 0), (-1, -1), 1.5, DORADO),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        story.append(tc)
+
+    # ── PIE ──────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.5*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    story.append(Paragraph(
+        f"Ficha técnica generada por <b>ChefMenu AI</b> &nbsp;|&nbsp; {nombre_restaurante} &nbsp;|&nbsp; "
+        "Escanea el QR para ver info completa del plato",
+        pie_style
+    ))
+
+    doc.build(story)
+    return buffer.getvalue()
+

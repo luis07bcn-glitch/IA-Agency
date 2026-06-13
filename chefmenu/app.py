@@ -12,11 +12,15 @@ import io
 import anthropic
 import streamlit as st
 from database import (
-    init_db, get_platos, add_plato, update_plato, delete_plato,
+    init_db, get_platos, add_plato, update_plato, delete_plato, duplicate_plato,
     get_despensa, add_despensa, delete_despensa,
     save_menu, get_menus_guardados, bulk_add_platos,
 )
-from ai_generator import generar_menu, analizar_escandallo, importar_platos_desde_texto, importar_platos_desde_pdf, analizar_foto_despensa, modo_escandalo
+from ai_generator import (
+    generar_menu, analizar_escandallo, importar_platos_desde_texto,
+    importar_platos_desde_pdf, analizar_foto_despensa, modo_escandalo,
+    generar_briefing, generar_ficha_tecnica, ficha_a_pdf,
+)
 
 init_db()
 
@@ -63,7 +67,7 @@ st.sidebar.divider()
 
 pagina = st.sidebar.radio(
     "Navegación",
-    ["🍽️ Generar Menú", "📋 Mis Platos", "📥 Importar Platos", "🛒 Despensa", "📊 Escandallo", "♻️ Escándalo Mode", "📁 Menús Guardados"],
+    ["🍽️ Generar Menú", "☀️ Briefing del Día", "📋 Mis Platos", "📥 Importar Platos", "🛒 Despensa", "📊 Escandallo", "♻️ Escándalo Mode", "📁 Menús Guardados"],
     label_visibility="collapsed",
 )
 
@@ -200,7 +204,115 @@ if pagina == "🍽️ Generar Menú":
                     st.success("Menú guardado.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PÁGINA 2 — MIS PLATOS
+# PÁGINA — BRIEFING DEL DÍA
+# ══════════════════════════════════════════════════════════════════════════════
+elif pagina == "☀️ Briefing del Día":
+    st.title("☀️ Briefing del Día")
+    st.markdown("El chef llega, abre esto y sabe exactamente qué preparar, en qué orden y cuánto necesita.")
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.subheader("Datos del servicio")
+
+        menus_guardados = get_menus_guardados()
+        menu_opciones = {f"{m['nombre']} — {m['fecha']}": m for m in menus_guardados}
+
+        fecha_hoy = st.date_input("Fecha del servicio")
+        hora_servicio = st.selectbox("Servicio", ["mediodía", "noche", "mediodía y noche"])
+        num_cubiertos = st.number_input("Cubiertos esperados", min_value=1, max_value=500, value=40, step=5)
+
+        st.markdown("**Menú del día:**")
+        usar_guardado = st.radio("Fuente del menú", ["Usar último menú generado", "Menú rápido (Mis Platos)", "Seleccionar menú guardado"], index=0)
+
+        menu_seleccionado = None
+        if usar_guardado == "Seleccionar menú guardado" and menu_opciones:
+            opcion = st.selectbox("Menú guardado", list(menu_opciones.keys()))
+            menu_seleccionado = menu_opciones[opcion]["contenido"]
+        elif usar_guardado == "Menú rápido (Mis Platos)":
+            menu_seleccionado = st.session_state.get("menu_rapido")
+            if menu_seleccionado and sum(len(v) for v in menu_seleccionado.values()):
+                total = sum(len(v) for v in menu_seleccionado.values())
+                st.success(f"Usando menú rápido ({total} platos seleccionados en Mis Platos).")
+            else:
+                st.warning("El menú rápido está vacío. Ve a Mis Platos y usa el botón '📌 Usar en menú'.")
+        elif usar_guardado == "Usar último menú generado":
+            menu_seleccionado = st.session_state.get("ultimo_menu")
+            if menu_seleccionado:
+                st.success("Usando el menú generado en esta sesión.")
+            else:
+                st.warning("No hay menú generado aún. Selecciona uno guardado o genera uno primero.")
+
+        usar_despensa_b = st.checkbox("Incluir alertas de despensa", value=True)
+        generar_b = st.button("📋 Generar briefing", type="primary", use_container_width=True)
+
+    with col2:
+        if generar_b:
+            if not menu_seleccionado:
+                st.error("Selecciona o genera un menú primero.")
+            else:
+                despensa = get_despensa() if usar_despensa_b else []
+                with st.spinner("Preparando el briefing del servicio..."):
+                    try:
+                        briefing = generar_briefing(
+                            menu_seleccionado, despensa,
+                            num_cubiertos, str(fecha_hoy), hora_servicio,
+                        )
+                        st.session_state["ultimo_briefing"] = briefing
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+        briefing = st.session_state.get("ultimo_briefing")
+        if briefing:
+            # Cabecera motivadora
+            st.markdown(f"""<div style="background:#1b4332; padding:14px 18px; border-radius:10px; margin-bottom:16px;">
+                <h3 style="margin:0; color:#52b788;">☀️ {briefing.get('resumen_servicio','')}</h3>
+            </div>""", unsafe_allow_html=True)
+
+            # Alertas
+            alertas = briefing.get("alertas", [])
+            if alertas and any(alertas):
+                for a in alertas:
+                    if a:
+                        st.markdown(f'<div class="alerta">⚠️ {a}</div>', unsafe_allow_html=True)
+                st.markdown("")
+
+            tab_mise, tab_tareas = st.tabs(["🥄 Mise en Place", "⏰ Orden de Tareas"])
+
+            with tab_mise:
+                mise = briefing.get("mise_en_place", [])
+                prioridad_color = {"alta": "#f44336", "media": "#ff9800", "baja": "#4caf50"}
+                for item in sorted(mise, key=lambda x: {"alta": 0, "media": 1, "baja": 2}.get(x.get("prioridad", "baja"), 2)):
+                    pr = item.get("prioridad", "media")
+                    color = prioridad_color.get(pr, "#ff9800")
+                    st.markdown(f"""<div style="background:#1a1f2e; border-left:4px solid {color};
+                        padding:10px 14px; border-radius:6px; margin:5px 0;">
+                        <b>{item.get('ingrediente','')}</b>
+                        <span style="color:{color}; font-size:0.8rem; margin-left:8px;">● {pr.upper()}</span><br>
+                        <span style="color:#90caf9;">📦 {item.get('cantidad_total','')}</span>
+                        &nbsp;|&nbsp; Para: <i>{item.get('para_plato','')}</i><br>
+                        <small style="color:#aaa;">⏱ {item.get('tiempo_prep','')} &nbsp;·&nbsp; {item.get('tecnica','')}</small>
+                    </div>""", unsafe_allow_html=True)
+
+            with tab_tareas:
+                for tarea in briefing.get("orden_tareas", []):
+                    resp_color = {"partida fría": "#64b5f6", "caliente": "#ff7043",
+                                  "postres": "#ce93d8", "general": "#81c784"}.get(tarea.get("responsable","general"), "#aaa")
+                    st.markdown(f"""<div style="background:#1a1f2e; padding:10px 14px;
+                        border-radius:6px; margin:5px 0; display:flex; align-items:center;">
+                        <span style="font-size:1.1rem; font-weight:bold; color:#ffd54f; min-width:55px;">{tarea.get('hora','')}</span>
+                        <span style="margin:0 10px;">→</span>
+                        <span style="flex:1;">{tarea.get('tarea','')}</span>
+                        <span style="color:{resp_color}; font-size:0.8rem; margin-left:8px;">
+                            {tarea.get('responsable','').upper()} · {tarea.get('duracion_min','')}min
+                        </span>
+                    </div>""", unsafe_allow_html=True)
+
+            st.divider()
+            st.markdown(f"**💬 Consejo para el servicio:** {briefing.get('consejo_servicio','')}")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PÁGINA — MIS PLATOS
 # ══════════════════════════════════════════════════════════════════════════════
 elif pagina == "📋 Mis Platos":
     st.title("📋 Base de Datos de Platos")
@@ -216,21 +328,111 @@ elif pagina == "📋 Mis Platos":
         if not platos:
             st.info("No hay platos. Añádelos manualmente o impórtalos desde un documento.")
         else:
+            nombre_restaurante = st.sidebar.text_input("Nombre restaurante (PDF)", value="Mi Restaurante")
+
             for p in platos:
-                with st.expander(f"**{p['nombre']}** — {p['categoria'].upper()} {('· ' + p['subtipo']) if p.get('subtipo') else ''} | {p['coste_racion']:.2f}€"):
-                    c1, c2, c3 = st.columns(3)
-                    c1.markdown(f"**Proteína:** {p.get('proteina', '—')}")
-                    c2.markdown(f"**Tiempo prep:** {p.get('tiempo_prep', '—')} min")
-                    c3.markdown(f"**Coste ración:** {p['coste_racion']:.2f}€")
-                    alergenos = json.loads(p.get("alergenos", "[]"))
-                    dietas = json.loads(p.get("dietas", "[]"))
-                    st.markdown(f"**Alérgenos:** {', '.join(alergenos) if alergenos and alergenos[0] != 'ninguno' else 'Ninguno'}")
-                    st.markdown(f"**Dietas:** {', '.join(dietas) if dietas else 'Ninguna'}")
-                    if p.get("descripcion"):
-                        st.markdown(f"*{p['descripcion']}*")
-                    if st.button("🗑️ Eliminar", key=f"del_{p['id']}"):
+                alergenos = json.loads(p.get("alergenos", "[]"))
+                dietas = json.loads(p.get("dietas", "[]"))
+                coste = p["coste_racion"]
+                pvp_30 = coste / 0.30
+                pvp_35 = coste / 0.35
+                alerg_str = ", ".join(alergenos) if alergenos and alergenos[0] != "ninguno" else "Ninguno"
+                dieta_chips = "".join([f'<span class="chip chip-verde">{d.replace("_"," ")}</span>' for d in dietas])
+                subtipo_badge = f'<span class="chip chip-azul">{p["subtipo"]}</span>' if p.get("subtipo") else ""
+                proteina_badge = f'<span class="chip chip-naranja">{p.get("proteina","")}</span>' if p.get("proteina") and p["proteina"] != "ninguna" else ""
+                alerg_bg = "#3d0000" if alergenos and alergenos[0] != "ninguno" else "#1b4332"
+                alerg_tc = "#ffcdd2" if alergenos and alergenos[0] != "ninguno" else "#a5d6a7"
+
+                with st.expander(
+                    f"**{p['nombre']}** — {p['categoria'].upper()} | Coste: {coste:.2f}€ | PVP rec.: {pvp_30:.2f}€",
+                    expanded=False
+                ):
+                    st.markdown(f"""<div style="background:linear-gradient(135deg,#1a2035,#1e2d1e);
+                        border-radius:10px; padding:16px 20px; margin-bottom:12px; border:1px solid #2e7d32;">
+                        <div style="font-size:1.3rem; font-weight:bold; color:#a5d6a7; margin-bottom:6px;">{p['nombre']}</div>
+                        <div style="margin-bottom:8px;">{subtipo_badge} {proteina_badge} {dieta_chips}</div>
+                        <div style="color:#aaa; font-style:italic; font-size:0.9rem; margin-bottom:12px;">{p.get('descripcion') or ''}</div>
+                        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:10px;">
+                            <div style="background:#0d2137; border-radius:8px; padding:8px 14px; text-align:center;">
+                                <div style="color:#90caf9; font-size:0.72rem;">COSTE</div>
+                                <div style="color:white; font-size:1.15rem; font-weight:bold;">{coste:.2f}€</div>
+                            </div>
+                            <div style="background:#1b4332; border-radius:8px; padding:8px 14px; text-align:center;">
+                                <div style="color:#52b788; font-size:0.72rem;">★ PVP 30%</div>
+                                <div style="color:white; font-size:1.15rem; font-weight:bold;">{pvp_30:.2f}€</div>
+                            </div>
+                            <div style="background:#3d2700; border-radius:8px; padding:8px 14px; text-align:center;">
+                                <div style="color:#ffb74d; font-size:0.72rem;">PVP 35%</div>
+                                <div style="color:white; font-size:1.1rem; font-weight:bold;">{pvp_35:.2f}€</div>
+                            </div>
+                            <div style="background:#263238; border-radius:8px; padding:8px 14px; text-align:center;">
+                                <div style="color:#90a4ae; font-size:0.72rem;">TIEMPO</div>
+                                <div style="color:white; font-size:1.1rem;">{p.get('tiempo_prep','?')} min</div>
+                            </div>
+                        </div>
+                        <div style="background:{alerg_bg}; border-radius:6px; padding:6px 12px; color:{alerg_tc}; font-size:0.85rem;">
+                            <b>⚠ Alérgenos:</b> {alerg_str}
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+                    with st.expander("🧮 Calcular PVP para otro food cost %"):
+                        fc_custom = st.slider("Food cost %", 20, 45, 30, key=f"fc_{p['id']}")
+                        pvp_c = coste / (fc_custom / 100)
+                        st.metric(f"PVP al {fc_custom}%", f"{pvp_c:.2f}€", delta=f"Margen: {pvp_c - coste:.2f}€")
+
+                    ca, cb, cc, cd = st.columns(4)
+
+                    if ca.button("📄 Ficha PDF", key=f"ficha_{p['id']}"):
+                        with st.spinner("Generando..."):
+                            try:
+                                ficha = generar_ficha_tecnica(p)
+                                pdf_bytes = ficha_a_pdf(ficha, nombre_restaurante)
+                                st.session_state[f"ficha_pdf_{p['id']}"] = pdf_bytes
+                                st.session_state[f"ficha_prev_{p['id']}"] = ficha
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+
+                    if st.session_state.get(f"ficha_pdf_{p['id']}"):
+                        ca.download_button(
+                            "⬇️ Descargar",
+                            data=st.session_state[f"ficha_pdf_{p['id']}"],
+                            file_name=f"ficha_{p['nombre'].replace(' ','_')}.pdf",
+                            mime="application/pdf",
+                            key=f"dl_{p['id']}",
+                        )
+
+                    if cb.button("📌 Usar en menú", key=f"uso_{p['id']}"):
+                        if "menu_rapido" not in st.session_state:
+                            st.session_state["menu_rapido"] = {"primeros": [], "segundos": [], "postres": []}
+                        cat_k = p["categoria"] + "s"
+                        entry = {"id": p["id"], "nombre": p["nombre"], "coste": coste, "dietas": dietas, "alergenos": alergenos}
+                        if entry not in st.session_state["menu_rapido"].get(cat_k, []):
+                            st.session_state["menu_rapido"][cat_k].append(entry)
+                        st.toast(f"'{p['nombre']}' añadido al menú rápido")
+
+                    if cc.button("📋 Duplicar", key=f"dup_{p['id']}"):
+                        duplicate_plato(p["id"])
+                        st.rerun()
+
+                    if cd.button("🗑️ Eliminar", key=f"del_{p['id']}"):
                         delete_plato(p["id"])
                         st.rerun()
+
+                    fp = st.session_state.get(f"ficha_prev_{p['id']}")
+                    if fp:
+                        st.caption(f"Ficha: coste {fp.get('coste_total_1_racion',0):.2f}€ | PVP 30%: {fp.get('precio_venta_sugerido_30pct',0):.2f}€")
+
+            menu_rapido = st.session_state.get("menu_rapido", {})
+            if sum(len(v) for v in menu_rapido.values()):
+                st.divider()
+                st.markdown("**📌 Menú rápido acumulado** — disponible como fuente en ☀️ Briefing del Día")
+                c1, c2, c3 = st.columns(3)
+                for pl in menu_rapido.get("primeros", []): c1.markdown(f"- {pl['nombre']}")
+                for pl in menu_rapido.get("segundos", []): c2.markdown(f"- {pl['nombre']}")
+                for pl in menu_rapido.get("postres", []): c3.markdown(f"- {pl['nombre']}")
+                if st.button("🗑️ Limpiar menú rápido"):
+                    del st.session_state["menu_rapido"]
+                    st.rerun()
 
     with tab2:
         st.subheader("Añadir nuevo plato")
