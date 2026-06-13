@@ -20,6 +20,7 @@ from .review_miner import ReviewMiner
 from .pain_detector import PainDetector
 from .offer_generator import OfferGenerator
 from .pricing import PricingCalculator
+from .scorecard import construir_scorecard, calcular_win_probability, aplicar_benchmark
 from .crm import CRM
 
 
@@ -110,6 +111,14 @@ class ProspectorAgent(BaseAgent):
         result.score_oportunidad = score
         result.resumen_oportunidad = resumen
 
+        # 4b. Scorecard de madurez digital + win probability (determinista, gratis)
+        log("Calculando scorecard de madurez digital...")
+        sc = construir_scorecard(
+            negocio, result.web_checklist, result.resenas, result.tiempo_carga
+        )
+        result.scorecard = sc.to_dict()
+        result.win_probability = calcular_win_probability(result, sc).to_dict()
+
         # 5. Generar outreach
         if generar_outreach and pains:
             negativas = [r for r in result.resenas if r.rating <= 3 and r.texto]
@@ -161,9 +170,31 @@ class ProspectorAgent(BaseAgent):
                 result = ProspectorResult(business=negocio, resumen_oportunidad=f"Error: {e}")
                 results.append(result)
 
+        # Benchmark de nicho + recálculo de win probability
+        self.finalizar_lote(results)
+
         # Ordenar por score descendente
         results.sort(key=lambda r: r.score_oportunidad, reverse=True)
         return results
+
+    @staticmethod
+    def finalizar_lote(results: List[ProspectorResult]) -> None:
+        """
+        Tras analizar un lote del mismo nicho: calcula el percentil de cada
+        negocio vs el promedio y recalcula la win probability con esa posición.
+        Llamar desde la UI cuando el análisis se hace negocio a negocio.
+        """
+        aplicar_benchmark(results)
+        for r in results:
+            if not r.scorecard:
+                continue
+            sc = construir_scorecard(
+                r.business, r.web_checklist, r.resenas, r.tiempo_carga
+            )
+            sc.percentil_nicho = r.scorecard.get("percentil_nicho")
+            sc.score_medio_nicho = r.scorecard.get("score_medio_nicho")
+            sc.tamano_muestra_nicho = r.scorecard.get("tamano_muestra_nicho")
+            r.win_probability = calcular_win_probability(r, sc).to_dict()
 
     def generar_outreach_completo(
         self,

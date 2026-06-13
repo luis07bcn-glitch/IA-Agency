@@ -134,6 +134,18 @@ class ServicioRecomendado:
 
 
 @dataclass
+class PerdidaDolor:
+    """Dinero que el negocio pierde HOY por una carencia concreta (€/mes)."""
+    concepto: str
+    euros_mes: float
+    explicacion: str
+    servicio: str           # qué servicio lo resuelve
+
+    def to_dict(self) -> dict:
+        return self.__dict__.copy()
+
+
+@dataclass
 class ROI:
     # Entradas
     leads_mes: float
@@ -335,3 +347,112 @@ class PricingCalculator:
             roi_6m=roi_a(6),
             roi_12m=roi_a(12),
         )
+
+    # ── Dinero sobre la mesa: pérdidas actuales por cada carencia ──────────────
+    def calcular_perdidas(
+        self,
+        result: ProspectorResult,
+        ticket: float,
+        leads_mes: float,
+        conversion_actual: float,
+    ) -> List[PerdidaDolor]:
+        """
+        Estima cuánto dinero pierde el negocio HOY por cada carencia detectada.
+        Es el artefacto de venta más potente: no proyecta ganancias futuras,
+        cuantifica la sangría actual ("pierdes X€/mes por no tener Y").
+
+        Modelos conservadores, todos en €/mes:
+          - Sin reserva 24/7 / sin chat → leads fuera de horario que se evaporan
+          - Web lenta o no responsive → rebote (53% abandona si tarda >3s)
+          - Sin captación (CTA/formulario) → conversión por debajo de potencial
+          - Sin fidelización (email) → recurrencia perdida del cliente existente
+          - Reputación baja (<4★) → clientes que eligen a la competencia
+        """
+        cl = result.web_checklist
+        b = result.business
+        conv = max(conversion_actual, 1.0) / 100
+        ventas_base = leads_mes * conv  # ventas/mes actuales estimadas
+        perdidas: List[PerdidaDolor] = []
+
+        sin_web = not b.tiene_web
+
+        # 1. Sin canal 24/7 (reservas online o chat/WhatsApp)
+        if sin_web or (cl and not cl.tiene_reserva_online and not cl.tiene_chat_whatsapp):
+            leads_fuera = leads_mes * 0.25  # ~25% del interés llega fuera de horario
+            ventas_perdidas = leads_fuera * conv * 0.6  # captvariamos el 60%
+            euros = ventas_perdidas * ticket
+            if euros > 0:
+                perdidas.append(PerdidaDolor(
+                    concepto="Leads fuera de horario sin atender",
+                    euros_mes=round(euros),
+                    explicacion=f"~{round(leads_fuera)} contactos/mes llegan fuera de horario y no hay quién responda (sin reservas 24/7 ni chat).",
+                    servicio="Agente IA WhatsApp 24/7 + reservas online",
+                ))
+
+        # 2. Web lenta o no responsive → rebote
+        if cl and (not cl.carga_rapida or not cl.es_mobile_responsive):
+            factor = 0.20 if not cl.carga_rapida else 0.12
+            ventas_perdidas = leads_mes * factor * conv
+            euros = ventas_perdidas * ticket
+            if euros > 0:
+                motivo = "Web lenta (>3s)" if not cl.carga_rapida else "Web no optimizada para móvil"
+                perdidas.append(PerdidaDolor(
+                    concepto="Abandono por mala experiencia web",
+                    euros_mes=round(euros),
+                    explicacion=f"{motivo}: el 53% abandona si tarda más de 3s. Pierdes ~{round(leads_mes*factor)} visitas cualificadas/mes.",
+                    servicio="Web profesional de conversión",
+                ))
+
+        # 3. Sin captación clara (CTA + formulario)
+        if sin_web or (cl and (not cl.tiene_cta_reserva or not cl.tiene_formulario)):
+            # 2 pp de conversión por debajo de su potencial
+            ventas_perdidas = leads_mes * 0.02
+            euros = ventas_perdidas * ticket
+            if euros > 0:
+                perdidas.append(PerdidaDolor(
+                    concepto="Conversión por debajo de potencial",
+                    euros_mes=round(euros),
+                    explicacion="Sin CTA clara ni formulario, la web no convierte visitas en clientes (≈2 pp de conversión perdidos).",
+                    servicio="Web de conversión + captación de leads",
+                ))
+
+        # 4. Sin fidelización (sin email DB)
+        if not sin_web and cl and not cl.tiene_captura_email:
+            ingresos_actual = ventas_base * ticket
+            euros = ingresos_actual * 0.15  # 15% de recurrencia perdida
+            if euros > 0:
+                perdidas.append(PerdidaDolor(
+                    concepto="Recurrencia perdida (clientes que no vuelven)",
+                    euros_mes=round(euros),
+                    explicacion="Sin base de datos de clientes no hay seguimiento ni reactivación: se pierde ~15% de la recurrencia.",
+                    servicio="Seguimiento y fidelización IA",
+                ))
+
+        # 5. Reputación baja (<4★) → fuga a la competencia
+        if b.rating and b.rating < 4.0 and b.total_resenas:
+            ventas_perdidas = leads_mes * 0.15 * conv
+            euros = ventas_perdidas * ticket
+            if euros > 0:
+                perdidas.append(PerdidaDolor(
+                    concepto="Clientes que eligen a la competencia",
+                    euros_mes=round(euros),
+                    explicacion=f"Rating {b.rating}★: el 92% lee reseñas antes de decidir y muchos descartan por debajo de 4★.",
+                    servicio="Gestión de reputación + protocolo de reseñas",
+                ))
+
+        # Techo de credibilidad: las pérdidas se solapan, así que la suma no
+        # debe superar el 45% de los ingresos actuales (si no, nadie se lo cree).
+        ingresos_actual = ventas_base * ticket
+        techo = ingresos_actual * 0.45
+        total = sum(p.euros_mes for p in perdidas)
+        if techo > 0 and total > techo:
+            factor = techo / total
+            for p in perdidas:
+                p.euros_mes = round(p.euros_mes * factor)
+
+        perdidas.sort(key=lambda p: p.euros_mes, reverse=True)
+        return [p for p in perdidas if p.euros_mes > 0]
+
+    @staticmethod
+    def total_perdidas(perdidas: List[PerdidaDolor]) -> float:
+        return round(sum(p.euros_mes for p in perdidas))

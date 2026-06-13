@@ -52,6 +52,11 @@ Thumbs.db
 memory/*.json
 memory/*.db
 
+# Bases de datos locales (CRM, ChefMenu, etc. — datos, no código)
+*.db
+*.sqlite
+*.sqlite3
+
 # Generated outputs (keep directory)
 outputs/*
 !outputs/.gitkeep

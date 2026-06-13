@@ -136,12 +136,18 @@ class ProspectorResult:
     whatsapp_mensaje: Optional[str] = None
     script_llamada: Optional[str] = None
 
+    # Scorecard de madurez digital + benchmark + win probability (deterministas)
+    scorecard: Optional[dict] = None          # Scorecard.to_dict()
+    win_probability: Optional[dict] = None     # WinProbability.to_dict()
+
     # Pricing & ROI (motor de ventas)
     ticket_promedio: Optional[float] = None
     leads_mensuales: Optional[int] = None
     conversion_actual: Optional[float] = None
     servicios_recomendados: List[dict] = field(default_factory=list)
     roi_data: Optional[dict] = None
+    perdidas: List[dict] = field(default_factory=list)   # PerdidaDolor.to_dict()
+    perdida_total_mes: Optional[float] = None
 
     # Assets de venta generados
     propuesta_texto: Optional[str] = None

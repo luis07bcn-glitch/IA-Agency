@@ -63,6 +63,30 @@ class CRM:
                     fecha_contacto    TEXT
                 )
             """)
+        self._migrar()
+
+    # Columnas añadidas después de la v1 (madurez digital, win probability, pérdidas, assets)
+    _COLUMNAS_EXTRA = {
+        "madurez_digital": "REAL",
+        "percentil_nicho": "INTEGER",
+        "win_probability": "INTEGER",
+        "perdida_mes": "REAL",
+        "scorecard_json": "TEXT",
+        "win_json": "TEXT",
+        "perdidas_json": "TEXT",
+        "propuesta_texto": "TEXT",
+        "demo_prompt": "TEXT",
+        "landing_prompt": "TEXT",
+        "presentacion_prompt": "TEXT",
+    }
+
+    def _migrar(self):
+        """Añade columnas nuevas a tablas creadas con versiones anteriores."""
+        with self._conn() as conn:
+            existentes = {row["name"] for row in conn.execute("PRAGMA table_info(prospectos)")}
+            for col, tipo in self._COLUMNAS_EXTRA.items():
+                if col not in existentes:
+                    conn.execute(f"ALTER TABLE prospectos ADD COLUMN {col} {tipo}")
 
     # ── Escritura ──────────────────────────────────────────────────────────────
 
@@ -92,6 +116,9 @@ class CRM:
             for r in (result.resenas or [])
         ]
 
+        sc = result.scorecard or {}
+        wp = result.win_probability or {}
+
         with self._conn() as conn:
             # Preservar estado y notas si ya existe
             existing = conn.execute(
@@ -106,8 +133,12 @@ class CRM:
                  rating, total_resenas, score_web, score_oportunidad, oportunidad_nivel,
                  resumen, pains_json, resenas_json,
                  email_asunto, email_cuerpo, whatsapp_mensaje, script_llamada,
-                 estado, notas, fecha_creacion, fecha_contacto)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 estado, notas, fecha_creacion, fecha_contacto,
+                 madurez_digital, percentil_nicho, win_probability, perdida_mes,
+                 scorecard_json, win_json, perdidas_json,
+                 propuesta_texto, demo_prompt, landing_prompt, presentacion_prompt)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+                        ?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 b.place_id, b.nombre, b.tipo, b.ciudad, b.direccion,
                 b.telefono, b.web, int(b.tiene_web),
@@ -125,6 +156,17 @@ class CRM:
                 estado, notas,
                 datetime.now().isoformat(),
                 result.fecha_contacto,
+                sc.get("score_global"),
+                sc.get("percentil_nicho"),
+                wp.get("score"),
+                result.perdida_total_mes,
+                json.dumps(sc, ensure_ascii=False) if sc else None,
+                json.dumps(wp, ensure_ascii=False) if wp else None,
+                json.dumps(result.perdidas, ensure_ascii=False) if result.perdidas else None,
+                result.propuesta_texto,
+                result.demo_prompt,
+                result.landing_prompt,
+                result.presentacion_prompt,
             ))
 
     # ── Lectura ────────────────────────────────────────────────────────────────

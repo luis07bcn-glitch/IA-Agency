@@ -1098,6 +1098,14 @@ elif page == "🎯 ProspectorIA":
                         results_tmp.append(
                             ProspectorResult(business=neg, resumen_oportunidad=f"Error: {e}")
                         )
+                # Benchmark de nicho + win probability (necesita todo el lote)
+                agent.finalizar_lote(results_tmp)
+                # Re-persistir con el percentil y win probability ya calculados
+                for r in results_tmp:
+                    try:
+                        agent.crm.guardar(r)
+                    except Exception:
+                        pass
                 results_tmp.sort(key=lambda r: r.score_oportunidad, reverse=True)
                 st.session_state.ps_resultados = results_tmp
                 pb.empty()
@@ -1105,24 +1113,41 @@ elif page == "🎯 ProspectorIA":
                 st.session_state.ps_paso = 4
                 st.rerun()
         else:
-            # Ya analizado — mostrar tabla resumen
-            COLOR_OPT = {"alta": "🔴", "media": "🟡", "baja": "🟢"}
+            # Ya analizado — ranking por probabilidad de cierre
+            def _win(r):
+                return (r.win_probability or {}).get("score", 0)
+            ranking = sorted(resultados, key=_win, reverse=True)
+
+            NIVEL_WIN_ICO = {"muy alta": "🟢", "alta": "🟢", "media": "🟡", "baja": "🔴"}
             rows_df = []
-            for r in resultados:
+            for r in ranking:
                 b = r.business
                 cl = r.web_checklist
-                nivel = cl.oportunidad() if cl else ("alta" if not b.tiene_web else "media")
+                wp = r.win_probability or {}
+                sc = r.scorecard or {}
+                madurez = sc.get("score_global")
+                pct = sc.get("percentil_nicho")
                 rows_df.append({
-                    "Score": r.score_oportunidad,
-                    "Oportunidad": COLOR_OPT.get(nivel, "⚪") + " " + nivel.upper(),
+                    "Win %": wp.get("score", 0),
+                    "Cierre": NIVEL_WIN_ICO.get(wp.get("nivel", ""), "⚪") + " " + wp.get("nivel", "—").upper(),
                     "Nombre": b.nombre,
-                    "Web": "❌ Sin web" if not b.tiene_web else f"✅ {cl.score()}/15",
+                    "Madurez digital": f"{madurez:.0f}/100" if madurez is not None else "—",
+                    "vs nicho": f"percentil {pct}" if pct is not None else "—",
                     "Rating": f"{b.rating} ⭐" if b.rating else "—",
-                    "Reseñas neg.": sum(1 for rv in r.resenas if rv.rating <= 3),
-                    "Dolor principal": r.pains[0].descripcion[:60] + "…" if r.pains else "—",
+                    "Dolor principal": (r.pains[0].descripcion[:55] + "…") if r.pains else "—",
                 })
-            st.dataframe(pd.DataFrame(rows_df), use_container_width=True, hide_index=True)
-            st.caption(f"✅ {len(resultados)} negocios analizados, ordenados de mayor a menor oportunidad")
+            st.dataframe(
+                pd.DataFrame(rows_df), use_container_width=True, hide_index=True,
+                column_config={
+                    "Win %": st.column_config.ProgressColumn(
+                        "Win %", min_value=0, max_value=100, format="%d",
+                    ),
+                },
+            )
+            st.caption(
+                f"✅ {len(resultados)} negocios analizados, ordenados por **probabilidad de cierre**. "
+                "Menor madurez digital + más por detrás de su nicho = más fácil de vender."
+            )
 
             if st.button("← Volver a resultados de búsqueda", key="ps_back3"):
                 st.session_state.ps_paso = 2
@@ -1173,6 +1198,64 @@ elif page == "🎯 ProspectorIA":
 
         if sel.resumen_oportunidad:
             st.info(f"💡 {sel.resumen_oportunidad}")
+
+        # ── Scorecard de Madurez Digital + Win Probability + Benchmark ──────
+        sc = sel.scorecard or {}
+        wp = sel.win_probability or {}
+        if sc:
+            st.divider()
+            st.markdown("#### 📈 Scorecard de Madurez Digital")
+
+            head1, head2, head3 = st.columns([1, 1, 1])
+            mad = sc.get("score_global", 0)
+            nivel_mad = sc.get("nivel_global", "—")
+            color_mad = "🟢" if mad >= 75 else "🟡" if mad >= 50 else "🟠" if mad >= 25 else "🔴"
+            head1.metric("Madurez digital", f"{mad:.0f}/100", help="0 = sin presencia digital, 100 = totalmente optimizado")
+            head1.markdown(f"{color_mad} **{nivel_mad.upper()}**")
+
+            pct = sc.get("percentil_nicho")
+            media = sc.get("score_medio_nicho")
+            n_muestra = sc.get("tamano_muestra_nicho")
+            if pct is not None and media is not None:
+                por_encima = 100 - pct
+                head2.metric(
+                    "Posición en su nicho",
+                    f"percentil {pct}",
+                    delta=f"{mad - media:+.0f} vs media ({media:.0f})",
+                    delta_color="normal",
+                )
+                head2.caption(f"El {por_encima}% de su competencia en {n_muestra} negocios lo hace mejor")
+
+            win = wp.get("score", 0)
+            nivel_win = wp.get("nivel", "—")
+            color_win = "🟢" if win >= 60 else "🟡" if win >= 40 else "🔴"
+            head3.metric("Probabilidad de cierre", f"{win}/100")
+            head3.markdown(f"{color_win} **{nivel_win.upper()}**")
+
+            if wp.get("explicacion"):
+                st.caption(f"🎯 {wp['explicacion']}")
+
+            # Barras por dimensión
+            st.markdown("**Desglose por dimensión** (rojo = oportunidad de venta)")
+            dims = sc.get("dimensiones", [])
+            dcol1, dcol2 = st.columns(2)
+            for idx, d in enumerate(dims):
+                target = dcol1 if idx % 2 == 0 else dcol2
+                dscore = d.get("score", 0)
+                barcolor = "#22c55e" if dscore >= 75 else "#eab308" if dscore >= 50 else "#f97316" if dscore >= 25 else "#ef4444"
+                falta = d.get("senales_falta", [])
+                tip = (" · ".join(falta[:3])) if falta else "Todo cubierto ✓"
+                target.markdown(
+                    f"<div style='margin-bottom:.5rem'>"
+                    f"<div style='display:flex;justify-content:space-between;font-size:.85rem'>"
+                    f"<span>{d.get('icono','')} {d.get('nombre','')}</span>"
+                    f"<span style='color:{barcolor};font-weight:600'>{dscore:.0f}</span></div>"
+                    f"<div style='background:rgba(255,255,255,.08);border-radius:4px;height:7px;overflow:hidden'>"
+                    f"<div style='width:{dscore}%;background:{barcolor};height:7px'></div></div>"
+                    f"<div style='font-size:.72rem;color:#94a3b8;margin-top:2px'>{tip}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
         st.divider()
 
@@ -1283,6 +1366,41 @@ elif page == "🎯 ProspectorIA":
         sel.leads_mensuales = int(leads)
         sel.conversion_actual = float(conv)
 
+        # ── Dinero sobre la mesa: lo que pierde HOY ────────────────────────
+        perdidas = pc.calcular_perdidas(sel, float(ticket), float(leads), float(conv))
+        total_perdida = pc.total_perdidas(perdidas)
+        sel.perdidas = [p.to_dict() for p in perdidas]
+        sel.perdida_total_mes = total_perdida
+
+        if perdidas:
+            # Formatear números aparte (evita romper el CSS con .replace de comas)
+            mes_txt = f"{total_perdida:,.0f}".replace(",", ".")
+            ano_txt = f"{total_perdida * 12:,.0f}".replace(",", ".")
+            st.markdown("#### 🩸 Dinero que está perdiendo HOY")
+            st.markdown(
+                "<div style='background:linear-gradient(90deg,rgba(239,68,68,.15),rgba(239,68,68,.03));"
+                "border-left:4px solid #ef4444;border-radius:8px;padding:14px 18px;margin-bottom:10px'>"
+                "<span style='font-size:.85rem;color:#94a3b8'>Pérdida estimada total</span><br>"
+                f"<span style='font-size:2rem;font-weight:700;color:#ef4444'>−{mes_txt} €/mes</span> "
+                f"<span style='color:#94a3b8'>· {ano_txt} €/año</span>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            for p in perdidas:
+                p_txt = f"{p.euros_mes:,.0f}".replace(",", ".")
+                st.markdown(
+                    "<div style='display:flex;justify-content:space-between;padding:6px 0;"
+                    "border-bottom:1px solid rgba(255,255,255,.06)'>"
+                    f"<span>🔻 <b>{p.concepto}</b><br>"
+                    f"<small style='color:#94a3b8'>{p.explicacion}</small></span>"
+                    f"<span style='color:#ef4444;font-weight:600;white-space:nowrap;"
+                    f"margin-left:12px'>−{p_txt} €/mes</span>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            st.caption("Estimación conservadora (techo del 45% de los ingresos) basada en las carencias reales detectadas. Es el argumento de apertura más potente.")
+            st.divider()
+
         # Recomendación de servicios + precios
         recs = pc.recomendar(sel, float(ticket))
 
@@ -1378,11 +1496,22 @@ elif page == "🎯 ProspectorIA":
 
         negativas = [r for r in sel.resenas if r.rating <= 3 and r.texto]
 
-        # Resumen del ROI para alimentar propuesta/presentación
+        # Resumen del ROI + pérdida actual para alimentar propuesta/presentación
         roi_resumen = ""
+        if sel.perdida_total_mes:
+            roi_resumen += (
+                f"PÉRDIDA ACTUAL ESTIMADA: −{sel.perdida_total_mes:.0f}€/mes "
+                f"({sel.perdida_total_mes * 12:.0f}€/año) por las carencias detectadas. "
+            )
+        if sel.scorecard:
+            sc = sel.scorecard
+            roi_resumen += f"Madurez digital {sc.get('score_global', 0):.0f}/100"
+            if sc.get("percentil_nicho") is not None:
+                roi_resumen += f" (percentil {sc['percentil_nicho']} de su nicho)"
+            roi_resumen += ". "
         if sel.roi_data:
             rd = sel.roi_data
-            roi_resumen = (
+            roi_resumen += (
                 f"Inversión {rd['inversion_setup']:.0f}€ setup + {rd['inversion_mensual']:.0f}€/mes; "
                 f"ingreso extra estimado +{rd['ingreso_extra_mes']:.0f}€/mes; "
                 f"recuperación en {rd['payback_meses']:.1f} meses; ROI 12m {rd['roi_12m']:.0f}%."
@@ -1759,20 +1888,30 @@ elif page == "📊 Base de Datos":
 
         # ── Tabla resumen ──────────────────────────────────────────────────
         df_db = pd.DataFrame([{
-            "Score": r["score_oportunidad"] or 0,
-            "Oport.": COLOR_OPT_DB.get(r["oportunidad_nivel"] or "", "⚪"),
+            "Win %": r.get("win_probability") or 0,
             "Estado": ESTADO_COLORS.get(r["estado"], "") + " " + (r["estado"] or "").upper(),
             "Nombre": r["nombre"],
             "Ciudad": r["ciudad"] or "—",
             "Tipo": r["tipo"] or "—",
+            "Madurez": f"{r['madurez_digital']:.0f}" if r.get("madurez_digital") is not None else "—",
+            "Percentil": r.get("percentil_nicho") if r.get("percentil_nicho") is not None else "—",
+            "Pérdida €/mes": f"−{r['perdida_mes']:,.0f}".replace(",", ".") if r.get("perdida_mes") else "—",
             "Web": "✅" if r["tiene_web"] else "❌",
             "Rating": f"{r['rating']} ⭐" if r["rating"] else "—",
-            "Reseñas": r["total_resenas"] or 0,
             "Tel.": r["telefono"] or "—",
             "Guardado": (r["fecha_creacion"] or "")[:10],
         } for r in rows_db])
+        df_db = df_db.sort_values("Win %", ascending=False)
 
-        st.dataframe(df_db, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_db, use_container_width=True, hide_index=True,
+            column_config={
+                "Win %": st.column_config.ProgressColumn(
+                    "Win %", min_value=0, max_value=100, format="%d",
+                    help="Probabilidad de cierre",
+                ),
+            },
+        )
 
         # ── Exportar ───────────────────────────────────────────────────────
         csv_db = crm_db.exportar_csv()
@@ -1805,8 +1944,38 @@ elif page == "📊 Base de Datos":
                 st.markdown(f"**Teléfono:** {rec['telefono']}")
             st.markdown(f"**Rating:** {rec['rating']} ⭐ ({rec['total_resenas']} reseñas)" if rec["rating"] else "**Rating:** —")
             st.markdown(f"**Score web:** {rec['score_web']}/15 &nbsp;|&nbsp; **Score oportunidad:** {rec['score_oportunidad']}/100")
+
+            # Métricas persuasivas
+            if rec.get("win_probability") is not None or rec.get("madurez_digital") is not None:
+                m1, m2, m3, m4 = st.columns(4)
+                if rec.get("win_probability") is not None:
+                    m1.metric("Win %", f"{rec['win_probability']}/100")
+                if rec.get("madurez_digital") is not None:
+                    m2.metric("Madurez digital", f"{rec['madurez_digital']:.0f}/100")
+                if rec.get("percentil_nicho") is not None:
+                    m3.metric("Percentil nicho", rec["percentil_nicho"])
+                if rec.get("perdida_mes"):
+                    m4.metric("Pérdida estimada", f"−{rec['perdida_mes']:,.0f} €/mes".replace(",", "."))
+
             if rec["resumen"]:
                 st.info(rec["resumen"], icon="💡")
+
+            # Desglose de pérdidas
+            if rec.get("perdidas_json"):
+                try:
+                    perds = _json.loads(rec["perdidas_json"])
+                except Exception:
+                    perds = []
+                if perds:
+                    with st.expander(f"🩸 Dinero que pierde — desglose ({len(perds)} conceptos)"):
+                        for p in perds:
+                            eur_txt = f"{p.get('euros_mes', 0):,.0f}".replace(",", ".")
+                            st.markdown(
+                                f"🔻 **{p.get('concepto','')}** — "
+                                f"<span style='color:#ef4444'>−{eur_txt} €/mes</span>"
+                                f"<br><small style='color:#94a3b8'>{p.get('explicacion','')}</small>",
+                                unsafe_allow_html=True,
+                            )
 
         with col_d2:
             st.markdown("**Gestión del pipeline**")
