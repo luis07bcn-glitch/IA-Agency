@@ -817,19 +817,23 @@ elif page == "🎯 ProspectorIA":
             st.session_state[k] = v
 
     # Normalizar resultados antiguos en sesión: si se analizaron antes de añadir
-    # campos nuevos (competitive, tech_stack, etc.), rellenarlos con su valor por
-    # defecto para que la UI no falle con AttributeError.
-    from dataclasses import MISSING as _MISSING
-    from agents.specialists.prospector.models import ProspectorResult as _PR
+    # campos nuevos (competitive, tech_stack, etc.), rellenarlos para que la UI no
+    # falle con AttributeError. Lista de campos a mano (no depende de que el módulo
+    # models esté recargado, que es justo lo que causaba el fallo).
+    _CAMPOS_NUEVOS = {
+        "scorecard": None, "win_probability": None,
+        "tech_stack": None, "pagespeed": None, "competitive": None,
+        "ticket_promedio": None, "leads_mensuales": None, "conversion_actual": None,
+        "roi_data": None, "perdida_total_mes": None,
+        "servicios_recomendados": list, "perdidas": list, "paquetes": list,
+        "secuencia_seguimiento": list,
+        "propuesta_texto": None, "demo_prompt": None, "landing_prompt": None,
+        "presentacion_prompt": None,
+    }
     for _r in st.session_state.get("ps_resultados", []):
-        for _fname, _f in _PR.__dataclass_fields__.items():
-            if not hasattr(_r, _fname):
-                if _f.default_factory is not _MISSING:
-                    setattr(_r, _fname, _f.default_factory())
-                elif _f.default is not _MISSING:
-                    setattr(_r, _fname, _f.default)
-                else:
-                    setattr(_r, _fname, None)
+        for _name, _default in _CAMPOS_NUEVOS.items():
+            if not hasattr(_r, _name):
+                setattr(_r, _name, _default() if _default is list else _default)
 
     paso = st.session_state.ps_paso
 
