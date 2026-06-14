@@ -144,6 +144,7 @@ class ProspectorResult:
     tech_stack: Optional[dict] = None          # {categoria: [herramientas]}
     pagespeed: Optional[dict] = None           # PageSpeedResult.to_dict()
     competitive: Optional[dict] = None         # análisis competitivo + battle card
+    automation: Optional[dict] = None          # PerfilAutomatizacion.to_dict() (sistemas autónomos / IA)
 
     # Pricing & ROI (motor de ventas)
     ticket_promedio: Optional[float] = None

@@ -822,7 +822,7 @@ elif page == "🎯 ProspectorIA":
     # models esté recargado, que es justo lo que causaba el fallo).
     _CAMPOS_NUEVOS = {
         "scorecard": None, "win_probability": None,
-        "tech_stack": None, "pagespeed": None, "competitive": None,
+        "tech_stack": None, "pagespeed": None, "competitive": None, "automation": None,
         "ticket_promedio": None, "leads_mensuales": None, "conversion_actual": None,
         "roi_data": None, "perdida_total_mes": None,
         "servicios_recomendados": list, "perdidas": list, "paquetes": list,
@@ -1219,6 +1219,36 @@ elif page == "🎯 ProspectorIA":
             st.info(f"💡 {sel.resumen_oportunidad}")
 
         # ── Scorecard de Madurez Digital + Win Probability + Benchmark ──────
+        # ── Sistemas autónomos / IA (el sello de MerakIA — lo primero) ─────
+        au = sel.automation or {}
+        if au:
+            st.divider()
+            st.markdown("#### 🤖 Sistemas autónomos / IA")
+            es_auto = au.get("es_autonomo")
+            nivel_a = au.get("nivel", "ninguno")
+            if not es_auto:
+                st.error(
+                    f"**NO tiene ningún sistema autónomo** (nivel: {nivel_a}). "
+                    "🎯 Oportunidad estrella para MerakIA: agente IA + chatbot 24/7.",
+                    icon="🚨",
+                )
+            else:
+                st.success(
+                    f"Ya tiene automatización (nivel: **{nivel_a}**). "
+                    "Ángulo: optimizar, integrar canales y añadir IA de seguimiento.",
+                    icon="✅",
+                )
+            ca1, ca2, ca3 = st.columns(3)
+            def _si_no(v, etiqueta_si, etiqueta_no):
+                return f"✅ {etiqueta_si}" if v else f"❌ {etiqueta_no}"
+            ca1.markdown(_si_no(au.get("tiene_chatbot_ia"), "Chatbot/agente IA web", "Sin chatbot IA"))
+            ca2.markdown(_si_no(au.get("tiene_whatsapp_automatizado"), "WhatsApp automatizado", "WhatsApp sin automatizar"))
+            ca3.markdown(_si_no(au.get("tiene_reservas_24_7"), "Reservas 24/7", "Sin reservas 24/7"))
+            if au.get("sistemas_detectados"):
+                st.caption("Sistemas detectados: " + " · ".join(f"`{s}`" for s in au["sistemas_detectados"]))
+            if au.get("oportunidad"):
+                st.markdown(f"<small style='color:#94a3b8'>{au['oportunidad']}</small>", unsafe_allow_html=True)
+
         sc = sel.scorecard or {}
         wp = sel.win_probability or {}
         if sc:
@@ -1666,6 +1696,11 @@ elif page == "🎯 ProspectorIA":
             roi_resumen += (
                 f"PÉRDIDA ACTUAL ESTIMADA: −{sel.perdida_total_mes:.0f}€/mes "
                 f"({sel.perdida_total_mes * 12:.0f}€/año) por las carencias detectadas. "
+            )
+        if sel.automation and not sel.automation.get("es_autonomo"):
+            roi_resumen += (
+                "NO tiene ningún sistema autónomo (sin chatbot IA ni WhatsApp automatizado): "
+                "el servicio estrella a proponer es un agente IA + chatbot 24/7. "
             )
         if sel.scorecard:
             sc = sel.scorecard

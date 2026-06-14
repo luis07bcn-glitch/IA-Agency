@@ -22,6 +22,7 @@ from .offer_generator import OfferGenerator
 from .pricing import PricingCalculator
 from .scorecard import construir_scorecard, calcular_win_probability, aplicar_benchmark
 from .competitive import aplicar_competitivo
+from .automation import analizar_automatizacion
 from .pagespeed import PageSpeedAnalyzer
 from .crm import CRM
 
@@ -105,10 +106,17 @@ class ProspectorAgent(BaseAgent):
         log("Clasificando reseñas...")
         result.resenas = self._review_miner.procesar(resenas_raw)
 
-        # 4. Detectar pains
+        # 3b. Perfil de automatización / IA (¿tiene ya algún sistema autónomo?)
+        log("Analizando sistemas autónomos / IA...")
+        perfil_auto = analizar_automatizacion(
+            result.tech_stack, result.web_checklist, negocio.tiene_web
+        )
+        result.automation = perfil_auto.to_dict()
+
+        # 4. Detectar pains (con el perfil de automatización como contexto)
         log("Detectando dolores del negocio con IA...")
         pains, score, resumen = self._pain_detector.detectar(
-            negocio, result.web_checklist, result.resenas
+            negocio, result.web_checklist, result.resenas, result.automation
         )
         result.pains = pains
         result.score_oportunidad = score
@@ -117,7 +125,8 @@ class ProspectorAgent(BaseAgent):
         # 4b. Scorecard de madurez digital + win probability (determinista, gratis)
         log("Calculando scorecard de madurez digital...")
         sc = construir_scorecard(
-            negocio, result.web_checklist, result.resenas, result.tiempo_carga
+            negocio, result.web_checklist, result.resenas, result.tiempo_carga,
+            automation=result.automation,
         )
         result.scorecard = sc.to_dict()
         result.win_probability = calcular_win_probability(result, sc).to_dict()
@@ -192,7 +201,8 @@ class ProspectorAgent(BaseAgent):
             if not r.scorecard:
                 continue
             sc = construir_scorecard(
-                r.business, r.web_checklist, r.resenas, r.tiempo_carga
+                r.business, r.web_checklist, r.resenas, r.tiempo_carga,
+                automation=r.automation,
             )
             sc.percentil_nicho = r.scorecard.get("percentil_nicho")
             sc.score_medio_nicho = r.scorecard.get("score_medio_nicho")

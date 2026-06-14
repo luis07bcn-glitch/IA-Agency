@@ -18,12 +18,13 @@ class PainDetector:
         business: Business,
         checklist: ChecklistWeb | None,
         resenas: List[Resena],
+        automation: dict | None = None,
     ) -> Tuple[List[PainPoint], int, str]:
         """
         Devuelve (pains_priorizados, score_oportunidad_0_100, resumen).
         score alto = lead muy caliente (muchos problemas, activo, sin presencia digital).
         """
-        contexto = self._construir_contexto(business, checklist, resenas)
+        contexto = self._construir_contexto(business, checklist, resenas, automation)
 
         prompt = f"""Eres un consultor de marketing digital especializado en encontrar oportunidades de negocio en empresas locales.
 
@@ -38,6 +39,10 @@ INSTRUCCIONES:
 - Si tienen reseñas que mencionen un problema específico, ese dolor es más urgente (tienen evidencia real)
 - "Sin web" es siempre urgencia máxima
 - Rating bajo (<4.0) con reseñas negativas sobre atención = dolor muy urgente
+- IMPORTANTE: si NO tiene ningún sistema autónomo (chatbot IA, agente de WhatsApp
+  automatizado), trátalo como un dolor de máxima prioridad: cada consulta fuera de
+  horario se pierde. La solución estrella es un agente IA 24/7. Usa la categoría
+  "atencion_24_7" para este dolor.
 - No incluyas dolores menores o secundarios
 - El score_oportunidad refleja qué tan caliente es este prospecto:
   100 = perfecto (muchos problemas críticos, sin presencia digital, activos en Google)
@@ -94,6 +99,7 @@ Responde ÚNICAMENTE con JSON válido, sin texto adicional:
         business: Business,
         checklist: ChecklistWeb | None,
         resenas: List[Resena],
+        automation: dict | None = None,
     ) -> str:
         lines = [
             f"Nombre: {business.nombre}",
@@ -101,6 +107,14 @@ Responde ÚNICAMENTE con JSON válido, sin texto adicional:
             f"Ciudad: {business.ciudad}",
             f"Rating Google: {business.rating}/5 ({business.total_resenas} reseñas en total)",
         ]
+
+        if automation is not None:
+            if automation.get("es_autonomo"):
+                sistemas = ", ".join(automation.get("sistemas_detectados", [])) or "sí"
+                lines.append(f"Sistemas autónomos / IA: SÍ tiene ({sistemas}) — nivel {automation.get('nivel')}")
+            else:
+                detalle = "solo enlace de WhatsApp humano" if automation.get("tiene_whatsapp_humano") else "ninguno"
+                lines.append(f"⚠️ Sistemas autónomos / IA: NO TIENE ({detalle}) — pierde consultas fuera de horario")
 
         if not business.tiene_web:
             lines.append("⚠️ SIN SITIO WEB — Solo aparece en Google Maps, sin presencia web propia")

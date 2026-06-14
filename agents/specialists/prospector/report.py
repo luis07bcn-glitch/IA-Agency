@@ -113,6 +113,26 @@ def generar_informe_html(
             f"(≈ {_eur((result.perdida_total_mes or 0) * 12)} €/año)</p>"
         )
 
+    # ── Sistemas autónomos / IA ───────────────────────────────────────────
+    au = result.automation or {}
+    if au:
+        if not au.get("es_autonomo"):
+            secciones.append(
+                "<h2>🤖 Atención automática 24/7 — tu mayor oportunidad</h2>"
+                "<p>Tu negocio <b>no dispone de ningún sistema autónomo</b> (chatbot con IA "
+                "ni agente de WhatsApp automatizado). Cada consulta que llega fuera de tu "
+                "horario —noches, fines de semana, festivos— se queda sin respuesta y, muy "
+                "probablemente, acaba en la competencia. Un agente con IA atiende, responde "
+                "dudas y agenda citas <b>24/7, sin intervención humana</b>.</p>"
+            )
+        else:
+            sist = ", ".join(au.get("sistemas_detectados", [])) or "sistema propio"
+            secciones.append(
+                "<h2>🤖 Atención automática</h2>"
+                f"<p>Ya cuentas con cierta automatización ({sist}). El siguiente paso es "
+                "integrarla con un agente de IA que unifique web y WhatsApp y haga seguimiento.</p>"
+            )
+
     # ── Posición competitiva ──────────────────────────────────────────────
     if comp and comp.get("posicion"):
         bc = ""

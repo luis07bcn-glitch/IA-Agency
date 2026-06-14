@@ -71,6 +71,30 @@ _FIRMAS: Dict[str, Dict[str, List[str]]] = {
         "Klaviyo": ["klaviyo"],
         "Brevo / Sendinblue": ["sendinblue", "brevo"],
     },
+    # Sistemas AUTÓNOMOS / IA — el sello de MerakIA. Distinguir esto de un simple
+    # enlace de WhatsApp (que es un canal humano, no automatización).
+    "Automatización / IA": {
+        "ManyChat": ["manychat"],
+        "Landbot": ["landbot"],
+        "Voiceflow": ["voiceflow"],
+        "Botpress": ["botpress"],
+        "Chatfuel": ["chatfuel"],
+        "Dialogflow": ["dialogflow"],
+        "Chatbase": ["chatbase"],
+        "Botsonic": ["botsonic"],
+        "Intercom (Fin AI)": ["intercom"],
+        "Ada": ["ada.cx", "ada.support"],
+        "Cliengo": ["cliengo"],
+        "Callbell": ["callbell"],
+        "Wati (WhatsApp API)": ["wati.io", "clare.ai"],
+        "360dialog (WhatsApp API)": ["360dialog"],
+        "Respond.io": ["respond.io"],
+        "Gupshup": ["gupshup"],
+        "Twilio": ["twilio"],
+        "Vapi (voz IA)": ["vapi.ai"],
+        "Tidio (con IA)": ["tidio"],
+        "Chatbot/Asistente IA": ["chatbot", "chat-bot", "openai", "gpt-", "assistant-widget"],
+    },
 }
 
 # Detecciones por cabecera HTTP

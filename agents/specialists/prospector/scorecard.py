@@ -125,11 +125,13 @@ def construir_scorecard(
     checklist: Optional[ChecklistWeb],
     resenas: List[Resena],
     tiempo_carga: Optional[float] = None,
+    automation: Optional[dict] = None,
 ) -> Scorecard:
     """Construye el cuadro de mando de madurez digital (8 dimensiones)."""
     cl = checklist or ChecklistWeb()
     tiene_web = business.tiene_web
     carga_ok = (tiempo_carga is not None and tiempo_carga < 3.0) or cl.carga_rapida
+    au = automation or {}
 
     dims: List[Dimension] = []
 
@@ -152,11 +154,18 @@ def construir_scorecard(
         ],
     ))
 
-    # 3. Reservas & Automatización
+    # 3. Automatización & IA 24/7 (el sello de MerakIA — peso alto)
     dims.append(Dimension.desde_senales(
-        "automatizacion", "Reservas & Automatización", "🤖", 1.3, [
-            Senal(2.0, cl.tiene_reserva_online, "Reserva/cita online 24/7", "Sin reservas online — depende del teléfono"),
-            Senal(1.5, cl.tiene_chat_whatsapp, "Chat/WhatsApp", "Sin chat ni WhatsApp — no responde fuera de horario"),
+        "automatizacion", "Automatización & IA 24/7", "🤖", 1.7, [
+            Senal(2.5, au.get("tiene_chatbot_ia", False),
+                  "Chatbot/agente IA en la web",
+                  "Sin chatbot ni agente IA — nadie atiende la web fuera de horario"),
+            Senal(2.0, au.get("tiene_whatsapp_automatizado", False),
+                  "WhatsApp automatizado (IA)",
+                  "WhatsApp sin automatizar — depende de una persona"),
+            Senal(1.5, cl.tiene_reserva_online,
+                  "Reserva/cita online 24/7",
+                  "Sin reservas automáticas — depende del teléfono"),
         ],
     ))
 

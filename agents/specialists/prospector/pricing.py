@@ -85,6 +85,16 @@ CATALOGO: List[Servicio] = [
         uplift_conversion_pp=1.0,
     ),
     Servicio(
+        clave="chatbot_web",
+        nombre="Chatbot IA en la web 24/7",
+        descripcion="Asistente con IA integrado en la web: responde, cualifica y agenda al instante, a cualquier hora.",
+        setup=(700, 1800),
+        mensual=(150, 400),
+        kpi="Convierte visitas anónimas en citas 24/7 sin intervención humana",
+        uplift_leads_pct=8.0,
+        uplift_conversion_pp=1.5,
+    ),
+    Servicio(
         clave="reservas_online",
         nombre="Sistema de reservas online",
         descripcion="Reserva/cita en la web 24/7 con recordatorios automáticos anti no-show.",
@@ -143,18 +153,19 @@ class Paquete:
 PAQUETES: List[Paquete] = [
     Paquete(
         clave="esencial",
-        nombre="Esencial — Presencia que convierte",
-        tagline="Lo mínimo para dejar de perder clientes online",
-        servicios=("web_conversion", "agente_whatsapp"),
+        nombre="Esencial — Automatización que convierte",
+        tagline="Tu web y tu WhatsApp atendidos por IA 24/7",
+        servicios=("web_conversion", "chatbot_web", "agente_whatsapp"),
         descuento_pct=0.0,
-        ideal_para="Negocios sin web o con web pobre que necesitan la base.",
+        ideal_para="Negocios sin ningún sistema autónomo que necesitan la base con IA.",
         nivel=1,
     ),
     Paquete(
         clave="crecimiento",
-        nombre="Crecimiento — Máquina de captación",
-        tagline="Captar más, no perder ningún lead y fidelizar",
-        servicios=("web_conversion", "agente_whatsapp", "reservas_online", "seguimiento_fidelizacion"),
+        nombre="Crecimiento — Máquina de captación con IA",
+        tagline="Agentes IA que captan, no pierden ningún lead y fidelizan",
+        servicios=("web_conversion", "chatbot_web", "agente_whatsapp",
+                   "reservas_online", "seguimiento_fidelizacion"),
         descuento_pct=10.0,
         ideal_para="El punto óptimo: la mayoría de negocios locales activos.",
         nivel=2,
@@ -162,8 +173,8 @@ PAQUETES: List[Paquete] = [
     Paquete(
         clave="dominacion",
         nombre="Dominación Local — Líder del nicho",
-        tagline="Ser el nº1 de su zona en Google y en captación",
-        servicios=("web_conversion", "agente_whatsapp", "reservas_online",
+        tagline="Automatización total + captación para ser el nº1 de tu zona",
+        servicios=("web_conversion", "chatbot_web", "agente_whatsapp", "reservas_online",
                    "seguimiento_fidelizacion", "captacion_ads", "seo_local"),
         descuento_pct=15.0,
         ideal_para="Quien quiere liderar su nicho y aplastar a la competencia.",
@@ -295,21 +306,38 @@ class PricingCalculator:
         """
         b = result.business
         cl = result.web_checklist
+        au = result.automation or {}
         claves: Dict[str, str] = {}  # clave_servicio -> motivo
+        flagship: set = set()        # servicios estrella (automatización/IA) a priorizar
 
-        def add(clave: str, motivo: str):
+        def add(clave: str, motivo: str, es_flagship: bool = False):
             if clave not in claves:
                 claves[clave] = motivo
+            if es_flagship:
+                flagship.add(clave)
+
+        # 0) SISTEMAS AUTÓNOMOS / IA — el sello de MerakIA, máxima prioridad.
+        #    Si el negocio no tiene chatbot IA ni WhatsApp automatizado, es LO
+        #    primero a ofrecer (no un servicio más).
+        if not au.get("tiene_chatbot_ia"):
+            add("chatbot_web",
+                "No tiene chatbot ni agente IA en la web: nadie atiende las visitas 24/7.",
+                es_flagship=True)
+        if not au.get("tiene_whatsapp_automatizado"):
+            motivo_wa = (
+                "Solo un enlace de WhatsApp atendido por una persona en horario."
+                if au.get("tiene_whatsapp_humano")
+                else "Sin WhatsApp automatizado: se pierden las consultas fuera de horario."
+            )
+            add("agente_whatsapp", motivo_wa, es_flagship=True)
 
         # 1) Señales de la WEB
         if not b.tiene_web:
             add("web_conversion", "No tiene web propia: solo aparece en Google Maps.")
-            add("agente_whatsapp", "Sin canal digital para responder a clientes al instante.")
+            add("agente_whatsapp", "Sin canal digital para responder a clientes al instante.", es_flagship=True)
         elif cl:
             if cl.score() <= 8:
                 add("web_conversion", f"Web con baja madurez digital ({cl.score()}/15).")
-            if not cl.tiene_chat_whatsapp:
-                add("agente_whatsapp", "Sin chat ni WhatsApp: no responde fuera de horario.")
             if not cl.tiene_reserva_online:
                 add("reservas_online", "Sin reserva/cita online: depende del teléfono.")
             if not cl.tiene_captura_email:
@@ -323,9 +351,10 @@ class PricingCalculator:
         mapa_pain = {
             "tiempo_respuesta": ("agente_whatsapp", "Reseñas se quejan de respuesta lenta."),
             "reservas_citas": ("reservas_online", "Clientes reportan dificultad para reservar."),
-            "atencion_cliente": ("agente_whatsapp", "Quejas sobre atención al cliente."),
+            "atencion_cliente": ("chatbot_web", "Quejas sobre atención al cliente: un agente IA respondería al instante."),
+            "atencion_24_7": ("chatbot_web", "Sin atención automática 24/7: se pierden consultas fuera de horario."),
             "esperas": ("reservas_online", "Quejas por esperas y gestión de citas."),
-            "informacion_web": ("web_conversion", "Falta información clave accesible online."),
+            "informacion_web": ("chatbot_web", "Falta información accesible: un chatbot IA la da al momento."),
             "seguimiento": ("seguimiento_fidelizacion", "Falta de seguimiento post-visita."),
         }
         for pain in result.pains:
@@ -353,15 +382,18 @@ class PricingCalculator:
                 motivo=motivo,
             ))
 
-        # Ordenar: primero los que más mueven la aguja (mayor uplift combinado)
-        recomendados.sort(
-            key=lambda r: (
+        # Ordenar: PRIMERO los servicios estrella de automatización/IA (el sello
+        # de MerakIA), luego por impacto (mayor uplift combinado).
+        def _orden(r: ServicioRecomendado):
+            es_flag = r.servicio.clave in flagship
+            impacto = (
                 r.servicio.uplift_leads_pct
                 + r.servicio.uplift_conversion_pp * 10
                 + r.servicio.uplift_ingresos_pct
-            ),
-            reverse=True,
-        )
+            )
+            return (1 if es_flag else 0, impacto)
+
+        recomendados.sort(key=_orden, reverse=True)
         return recomendados
 
     # ── Proyección de ROI ──────────────────────────────────────────────────

@@ -11,6 +11,7 @@ from .scorecard import (
 from .techstack import detectar_tech_stack, resumen_oportunidad_tech
 from .pagespeed import PageSpeedAnalyzer, PageSpeedResult
 from .competitive import analisis_competitivo, aplicar_competitivo
+from .automation import analizar_automatizacion, PerfilAutomatizacion
 from .report import generar_informe_html
 from .crm import CRM, ESTADOS, ESTADO_COLORS
 
@@ -41,6 +42,8 @@ __all__ = [
     "PageSpeedResult",
     "analisis_competitivo",
     "aplicar_competitivo",
+    "analizar_automatizacion",
+    "PerfilAutomatizacion",
     "generar_informe_html",
     "CRM",
     "ESTADOS",
