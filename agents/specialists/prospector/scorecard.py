@@ -126,14 +126,37 @@ def construir_scorecard(
     resenas: List[Resena],
     tiempo_carga: Optional[float] = None,
     automation: Optional[dict] = None,
+    gbp_audit: Optional[dict] = None,
 ) -> Scorecard:
-    """Construye el cuadro de mando de madurez digital (8 dimensiones)."""
+    """Construye el cuadro de mando de madurez digital (9 dimensiones)."""
     cl = checklist or ChecklistWeb()
     tiene_web = business.tiene_web
     carga_ok = (tiempo_carga is not None and tiempo_carga < 3.0) or cl.carga_rapida
     au = automation or {}
+    gb = gbp_audit or {}
 
     dims: List[Dimension] = []
+
+    # 0. Ficha de Google Business Profile (nueva dimensión — máximo impacto local)
+    dims.append(Dimension.desde_senales(
+        "gbp", "Ficha de Google Business", "📍", 1.5, [
+            Senal(2.5, gb.get("tiene_fotos", False),
+                  f"{gb.get('num_fotos', 0)} foto(s) en Google" if gb.get("num_fotos") else "Fotos en Google",
+                  "Sin fotos en Google — las fichas con fotos reciben 42% más clics"),
+            Senal(2.0, gb.get("tiene_horario", False),
+                  "Horario publicado en Google",
+                  "Sin horario en Google — los clientes no saben cuándo están abiertos"),
+            Senal(1.5, gb.get("tiene_descripcion", False),
+                  "Descripción del negocio en Google",
+                  "Sin descripción — no explica qué ofrece ni se diferencia"),
+            Senal(1.0, gb.get("tiene_web_vinculada", False),
+                  "Web vinculada desde Google",
+                  "Sin web vinculada — pierde tráfico hacia su sitio"),
+            Senal(1.0, gb.get("tiene_telefono", False),
+                  "Teléfono visible en Google",
+                  "Sin teléfono en la ficha — fricción para contactar"),
+        ],
+    ))
 
     # 1. Presencia & Rendimiento Web
     dims.append(Dimension.desde_senales(

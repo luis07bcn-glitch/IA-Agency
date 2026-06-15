@@ -17,6 +17,7 @@ class Business:
     lng: Optional[float] = None
     tiene_web: bool = False
     nombre_propietario: Optional[str] = None
+    gbp_raw: Optional[dict] = None       # campos crudos de Places API para auditoría GBP
 
 
 @dataclass
@@ -145,6 +146,7 @@ class ProspectorResult:
     pagespeed: Optional[dict] = None           # PageSpeedResult.to_dict()
     competitive: Optional[dict] = None         # análisis competitivo + battle card
     automation: Optional[dict] = None          # PerfilAutomatizacion.to_dict() (sistemas autónomos / IA)
+    gbp_audit: Optional[dict] = None           # PerfilGBP.to_dict() (auditoría Google Business Profile)
 
     # Pricing & ROI (motor de ventas)
     ticket_promedio: Optional[float] = None

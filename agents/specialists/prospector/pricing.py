@@ -191,6 +191,10 @@ class ServicioRecomendado:
     setup: float            # precio final calculado
     mensual: float          # precio final calculado
     motivo: str             # por qué se recomienda (evidencia del análisis)
+    # Mapa de evidencia estructurada
+    evidencia_verificada: List[str] = field(default_factory=list)   # datos duros medidos
+    evidencia_estimada: List[str] = field(default_factory=list)     # cálculos con supuestos
+    impacto_especifico: str = ""    # impacto concreto para ESTE negocio (no del catálogo)
 
 
 @dataclass
@@ -297,6 +301,109 @@ class PricingCalculator:
         f = cls._factor_tier(ticket)
         return round(lo + (hi - lo) * f, -1)  # redondeo a la decena
 
+    # ── Mapa de evidencia por servicio ────────────────────────────────────
+    @staticmethod
+    def _evidencia(
+        clave: str,
+        result: ProspectorResult,
+        ticket: float,
+    ):
+        """
+        Devuelve (evidencia_verificada, evidencia_estimada, impacto_especifico)
+        para un servicio concreto en el contexto de ESTE negocio.
+        - verificada: dato duro medido (web check, PageSpeed, GBP, reseñas)
+        - estimada: proyección con supuestos explícitos
+        - impacto: frase corta con números del negocio
+        """
+        b = result.business
+        cl = result.web_checklist
+        au = result.automation or {}
+        ps = result.pagespeed or {}
+        gb = result.gbp_audit or {}
+        resenas = result.resenas or []
+        rating = b.rating or 0
+        total_res = b.total_resenas or 0
+        neg = [r for r in resenas if r.rating <= 3 and r.texto]
+
+        ev_v: List[str] = []
+        ev_e: List[str] = []
+        impacto = ""
+
+        if clave == "chatbot_web":
+            if not au.get("tiene_chatbot_ia"):
+                ev_v.append("Verificado: 0 sistemas de chatbot IA detectados en la web")
+            if cl and not cl.tiene_formulario:
+                ev_v.append("Verificado: sin formulario de contacto activo")
+            pains_24 = [p for p in (result.pains or []) if "respuesta" in p.categoria or "atencion" in p.categoria]
+            if pains_24:
+                ev_v.append(f"Reseñas: {len(pains_24)} queja(s) detectada(s) sobre tiempo de respuesta")
+            ev_e.append("Estimado: ~25% del interés digital llega fuera de horario laboral")
+            impacto = f"Atiende consultas 24/7 sin personal — captura el ~25% de leads que hoy se pierden"
+
+        elif clave == "agente_whatsapp":
+            if au.get("tiene_whatsapp_humano") and not au.get("tiene_whatsapp_automatizado"):
+                ev_v.append("Verificado: solo enlace wa.me (humano) — sin automatización")
+            elif not au.get("tiene_whatsapp_automatizado"):
+                ev_v.append("Verificado: sin WhatsApp automatizado detectado")
+            pains_wa = [p for p in (result.pains or []) if "tiempo_respuesta" in p.categoria]
+            if pains_wa:
+                ev_v.append(f"Reseñas: quejas explícitas de respuesta lenta")
+            ev_e.append("Estimado: el 68% de los clientes prefiere WhatsApp para contactar negocios locales")
+            impacto = "Responde en segundos a cualquier hora — convierte consultas de WhatsApp en citas"
+
+        elif clave == "web_conversion":
+            if not b.tiene_web:
+                ev_v.append("Verificado: sin web propia — solo presencia en Google Maps")
+                impacto = "Crea presencia web donde el 81% busca antes de contactar un negocio local"
+            else:
+                if cl:
+                    sc = cl.score()
+                    ev_v.append(f"Verificado: web con puntuación {sc}/15 en checklist de conversión")
+                    if not cl.es_mobile_responsive:
+                        ev_v.append("Verificado: web no optimizada para móvil")
+                    if not cl.tiene_https:
+                        ev_v.append("Verificado: sin HTTPS")
+                if ps.get("performance_score"):
+                    ev_v.append(f"PageSpeed real: {ps['performance_score']}/100 (móvil)")
+                    if ps.get("lcp_s") and ps["lcp_s"] > 2.5:
+                        ev_v.append(f"LCP {ps['lcp_s']}s — Google penaliza por encima de 2,5s")
+                ev_e.append("Estimado: el 53% abandona si la web tarda más de 3s en cargar")
+                impacto = f"Web optimizada que convierte el doble de visitas en clientes reales"
+
+        elif clave == "reservas_online":
+            if cl and not cl.tiene_reserva_online:
+                ev_v.append("Verificado: sin sistema de reserva online detectado")
+            pains_res = [p for p in (result.pains or []) if "reservas" in p.categoria or "esperas" in p.categoria]
+            if pains_res:
+                ev_v.append(f"Reseñas: {len(pains_res)} queja(s) sobre dificultad para reservar o esperas")
+            ev_e.append("Estimado: sistemas de reserva online reducen no-shows en un 40%")
+            impacto = "Citas online 24/7 con recordatorios automáticos — menos no-shows y más agenda cubierta"
+
+        elif clave == "seo_local":
+            if cl and not cl.tiene_blog:
+                ev_v.append("Verificado: sin blog ni contenido SEO en la web")
+            if gb.get("completitud", 100) < 60:
+                ev_v.append(f"GBP: ficha de Google al {gb.get('completitud', 0)}% de completitud")
+            ev_e.append("Estimado: el 46% de búsquedas de Google son de intención local")
+            impacto = f"Aparecer en los primeros resultados locales cuando buscan '{b.tipo} en {b.ciudad}'"
+
+        elif clave == "captacion_ads":
+            if cl and not cl.tiene_pixel_tracking:
+                ev_v.append("Verificado: sin píxel de seguimiento ni analítica detectada")
+            if total_res < 30:
+                ev_v.append(f"Verificado: solo {total_res} reseñas — volumen de clientes bajo")
+            ev_e.append("Estimado: campañas locales bien segmentadas consiguen leads a 3-8€/lead")
+            impacto = f"+20-25% de leads cualificados al mes para {b.tipo} en {b.ciudad}"
+
+        elif clave == "seguimiento_fidelizacion":
+            if cl and not cl.tiene_captura_email:
+                ev_v.append("Verificado: no captura emails — sin base de datos de clientes")
+            ev_e.append("Estimado: aumentar recurrencia un 5% sube ingresos un 25-95% (Bain & Co)")
+            ev_e.append(f"Estimado: con ticket ~{ticket:.0f}€, reactivar 1 cliente extra/mes = {ticket:.0f}€ más")
+            impacto = "Reactiva clientes dormidos y aumenta la frecuencia de visita con seguimiento IA"
+
+        return ev_v, ev_e, impacto
+
     # ── Recomendación de servicios según el análisis ───────────────────────
     def recomendar(self, result: ProspectorResult, ticket: float) -> List[ServicioRecomendado]:
         """
@@ -371,15 +478,19 @@ class PricingCalculator:
             add("web_conversion", "Mejora base de presencia y conversión digital.")
             add("agente_whatsapp", "Atención automática 24/7 para no perder leads.")
 
-        # Construir recomendaciones con precios
+        # Construir recomendaciones con precios + evidencia estructurada
         recomendados = []
         for clave, motivo in claves.items():
             s = CATALOGO_POR_CLAVE[clave]
+            ev_v, ev_e, impacto = self._evidencia(clave, result, ticket)
             recomendados.append(ServicioRecomendado(
                 servicio=s,
                 setup=self._precio(s.setup, ticket),
                 mensual=self._precio(s.mensual, ticket),
                 motivo=motivo,
+                evidencia_verificada=ev_v,
+                evidencia_estimada=ev_e,
+                impacto_especifico=impacto,
             ))
 
         # Ordenar: PRIMERO los servicios estrella de automatización/IA (el sello

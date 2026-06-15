@@ -329,48 +329,371 @@ elif page == "📣 Contenido & Marketing":
 # ─── Chatbot Specialist ───────────────────────────────────────────────────────
 elif page == "🤖 Chatbot Specialist":
     st.subheader("🤖 Chatbot Specialist Agent")
-    st.caption("Diseña chatbots personalizados para cualquier negocio o sector.")
+    st.caption("Genera un system prompt completo y listo para desplegar, personalizado con la información real del negocio.")
 
+    # ── Datos del negocio ──
+    st.markdown("#### 1. Datos del negocio")
     col1, col2 = st.columns(2)
     with col1:
-        business_name = st.text_input("Nombre del negocio", placeholder="La Dolce Vita")
+        business_name = st.text_input("Nombre del negocio", placeholder="Clínica Dental Sonrisa")
         sector = st.selectbox(
             "Sector",
-            ["Restaurante / Bar", "E-commerce", "Salud / Clínica", "Inmobiliaria",
-             "Educación", "Servicios profesionales", "Hotel / Turismo", "Otro"],
+            ["Salud / Clínica", "Restaurante / Bar", "E-commerce", "Inmobiliaria",
+             "Educación", "Servicios profesionales", "Hotel / Turismo", "Belleza / Estética", "Otro"],
         )
     with col2:
         objectives = st.multiselect(
             "Objetivos del chatbot",
-            ["Gestión de reservas", "Atención al cliente", "FAQ / Información",
-             "Generación de leads", "Soporte técnico", "Ventas", "Seguimiento de pedidos"],
-            default=["Atención al cliente", "FAQ / Información"],
+            ["Atención al cliente 24/7", "Gestión de citas / reservas", "FAQ / Información de servicios",
+             "Captación de leads", "Información de precios", "Soporte postventa", "Ventas"],
+            default=["Atención al cliente 24/7", "FAQ / Información de servicios"],
         )
         tone_bot = st.select_slider(
             "Personalidad del bot",
             options=["Muy formal", "Profesional", "Amigable", "Cercano", "Divertido"],
-            value="Amigable",
+            value="Profesional",
         )
 
-    extra = st.text_area("Contexto adicional (opcional)",
-                         placeholder="Horarios, servicios especiales, información relevante...",
-                         height=80)
+    extra = st.text_area(
+        "Información adicional (horarios, dirección, teléfono, políticas...)",
+        placeholder="Ej: Horario L-V 9:00-20:00, Sáb 10:00-14:00. Dirección: Calle Mayor 12, Barcelona. Tel: 932 000 000.",
+        height=80,
+    )
 
-    if st.button("🤖 Diseñar chatbot", type="primary", disabled=not business_name.strip()):
+    # ── Base de conocimiento ──
+    st.markdown("#### 2. Base de conocimiento del negocio (opcional pero recomendado)")
+    st.caption("Sube los documentos con los servicios, tratamientos, precios, FAQs o cualquier información que el chatbot deba conocer.")
+
+    uploaded_files = st.file_uploader(
+        "Arrastra aquí tus archivos (PDF o TXT)",
+        type=["pdf", "txt"],
+        accept_multiple_files=True,
+        help="Ejemplos: catálogo de tratamientos, lista de precios, manual de bienvenida, FAQs internas.",
+    )
+
+    # Extraer texto de los archivos subidos
+    knowledge_base = ""
+    if uploaded_files:
+        textos = []
+        for f in uploaded_files:
+            if f.type == "application/pdf":
+                try:
+                    from pypdf import PdfReader
+                    import io
+                    reader = PdfReader(io.BytesIO(f.read()))
+                    texto = "\n".join(p.extract_text() or "" for p in reader.pages)
+                    textos.append(f"[Archivo: {f.name}]\n{texto.strip()}")
+                except Exception as e:
+                    st.warning(f"No se pudo leer {f.name}: {e}")
+            elif f.type == "text/plain":
+                try:
+                    texto = f.read().decode("utf-8", errors="ignore")
+                    textos.append(f"[Archivo: {f.name}]\n{texto.strip()}")
+                except Exception as e:
+                    st.warning(f"No se pudo leer {f.name}: {e}")
+
+        if textos:
+            knowledge_base = "\n\n---\n\n".join(textos)
+            total_chars = len(knowledge_base)
+            st.success(f"✅ {len(textos)} archivo(s) cargado(s) — {total_chars:,} caracteres de conocimiento.")
+            with st.expander("Vista previa del contenido extraído"):
+                st.text(knowledge_base[:2000] + ("..." if total_chars > 2000 else ""))
+
+    st.divider()
+
+    if st.button("🤖 Generar system prompt", type="primary", disabled=not business_name.strip()):
         from agents.specialists.chatbot_specialist import ChatbotSpecialist
 
-        brief = (
-            f"Negocio: {business_name} | Sector: {sector} | "
-            f"Objetivos: {', '.join(objectives)} | Personalidad: {tone_bot}. "
-            f"{extra}"
-        )
-        with st.spinner("Diseñando chatbot..."):
+        brief_parts = [
+            f"NEGOCIO: {business_name}",
+            f"SECTOR: {sector}",
+            f"OBJETIVOS DEL CHATBOT: {', '.join(objectives)}",
+            f"PERSONALIDAD / TONO: {tone_bot}",
+        ]
+        if extra.strip():
+            brief_parts.append(f"INFORMACIÓN ADICIONAL: {extra.strip()}")
+
+        if knowledge_base:
+            # Truncar a 12.000 chars para no saturar el contexto
+            kb_truncado = knowledge_base[:12000] + ("..." if len(knowledge_base) > 12000 else "")
+            brief_parts.append(
+                f"\nBASE DE CONOCIMIENTO DEL NEGOCIO (úsala para hacer el system prompt específico):\n"
+                f"{'='*60}\n{kb_truncado}\n{'='*60}"
+            )
+        else:
+            brief_parts.append(
+                "\nNo se han subido documentos. Genera el system prompt basándote en el sector "
+                "y objetivos indicados, con placeholders [SERVICIO], [PRECIO] donde el cliente "
+                "deba rellenar su información real."
+            )
+
+        brief = "\n".join(brief_parts)
+
+        with st.spinner("Generando system prompt personalizado (~20s)..."):
             result = ChatbotSpecialist().run(brief)
 
+        from agents.specialists.flowise_export import generar_chatflow_json, generar_snippet_base44
+        flowise_json = generar_chatflow_json(result, business_name)
+        snippet_base44 = generar_snippet_base44("https://tu-flowise.up.railway.app", business_name)
+        slug = business_name.lower().replace(" ", "_")
+
         st.divider()
-        st.markdown(result)
-        st.divider()
-        download_button(result, f"chatbot_{business_name.lower().replace(' ', '_')}.md")
+        tab_sp, tab_fl, tab_b44, tab_guide, tab_doc = st.tabs([
+            "📄 System Prompt", "🔧 Flowise JSON", "🌐 Snippet Web", "📋 Guía paso a paso", "📅 Doctoralia + Agenda"
+        ])
+
+        with tab_sp:
+            st.markdown(result)
+            st.divider()
+            col_d1, col_d2 = st.columns(2)
+            col_d1.download_button("⬇️ Descargar (.md)", data=result,
+                                   file_name=f"chatbot_{slug}.md", mime="text/markdown")
+            col_d2.download_button("⬇️ Descargar (.txt)", data=result,
+                                   file_name=f"chatbot_{slug}.txt", mime="text/plain")
+
+        with tab_fl:
+            st.markdown("#### JSON listo para importar en Flowise")
+            st.caption("Flowise → **File → Load Chatflow** → selecciona este archivo")
+            st.code(flowise_json, language="json")
+            st.download_button(
+                "⬇️ Descargar chatflow.json",
+                data=flowise_json,
+                file_name=f"chatflow_{slug}.json",
+                mime="application/json",
+            )
+            st.info(
+                "⚠️ Después de importar: ve al nodo **ChatAnthropic** y selecciona tu "
+                "credencial de Anthropic. El system prompt ya está incorporado en el nodo "
+                "**Conversation Chain**.", icon="ℹ️"
+            )
+
+        with tab_b44:
+            st.markdown("#### Snippet de integración")
+            st.caption("Sustituye `CHATFLOW_ID` y la URL de Railway por los tuyos reales.")
+            st.code(snippet_base44, language="html")
+            st.download_button(
+                "⬇️ Descargar snippet (.html)",
+                data=snippet_base44,
+                file_name=f"snippet_{slug}.html",
+                mime="text/html",
+            )
+
+            st.markdown("**¿Dónde encontrar el Chatflow ID?**")
+            st.caption("En Flowise → abre el chatflow → la URL contiene el ID: `/chatflows/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`")
+
+            st.divider()
+            st.markdown("#### ¿Cómo integrarlo según la plataforma del cliente?")
+            plataforma = st.selectbox(
+                "Plataforma web del cliente",
+                ["WordPress", "Base44", "Wix", "Squarespace", "HTML puro", "Webflow"],
+                key="plataforma_snippet",
+            )
+
+            if plataforma == "WordPress":
+                st.markdown("""
+**Opción A — Plugin WPCode** *(recomendada, 5 min, sin tocar código)*
+1. En el panel de WordPress → **Plugins → Añadir nuevo**
+2. Busca **WPCode** (antes "Insert Headers and Footers") → Instalar → Activar
+3. Ve a **Code Snippets → Header & Footer**
+4. Pega el snippet en la sección **Footer**
+5. Guarda → el chatbot aparece en todas las páginas
+
+**Opción B — Elementor** *(si el cliente usa Elementor)*
+1. Edita cualquier página con Elementor
+2. Arrastra un bloque **HTML** al final de la página
+3. Pega el snippet → guarda
+
+**Opción C — functions.php** *(técnica, para developers)*
+```php
+function merakia_chatbot() { ?>
+  <!-- pega aquí el snippet completo -->
+<?php }
+add_action('wp_footer', 'merakia_chatbot');
+```
+Añadir en **Apariencia → Editor de temas → functions.php**
+⚠️ Usar un child theme para no perderlo en actualizaciones.
+""")
+            elif plataforma == "Base44":
+                st.markdown("""
+1. Abre el proyecto en Base44
+2. Añade un bloque **Embed / HTML personalizado** al final de la página
+3. Pega el snippet
+4. Publica
+""")
+            elif plataforma == "Wix":
+                st.markdown("""
+1. Editor de Wix → **Añadir → Embed → HTML personalizado**
+2. Pega el snippet
+3. Publica el sitio
+
+O bien: **Panel de Wix → Configuración → Código personalizado → Añadir código → Footer** (afecta a todas las páginas)
+""")
+            elif plataforma == "Squarespace":
+                st.markdown("""
+1. **Configuración → Avanzado → Inyección de código**
+2. Pega el snippet en la sección **Footer**
+3. Guarda y publica
+""")
+            elif plataforma == "HTML puro":
+                st.markdown("""
+Pega el snippet justo antes del cierre `</body>` en el archivo HTML:
+```html
+  <!-- resto del contenido -->
+  <!-- chatbot -->
+  <script type="module">...</script>
+</body>
+</html>
+```
+""")
+            elif plataforma == "Webflow":
+                st.markdown("""
+1. **Configuración del proyecto → Custom Code → Footer Code**
+2. Pega el snippet
+3. Publica el sitio
+
+O por página: abre la página → Settings → Custom Code → Before `</body>` tag
+""")
+
+        with tab_guide:
+            st.markdown(f"""
+#### Guía completa: Flowise + Railway + Base44
+
+**Tiempo estimado: 20-30 min por cliente nuevo**
+
+---
+
+##### 1. Importar en Flowise
+1. Abre tu Flowise en Railway
+2. Clic en **File → Load Chatflow**
+3. Selecciona el archivo `chatflow_{slug}.json` que descargaste
+4. En el nodo **ChatAnthropic** → clic en el campo de credencial → selecciona tu API key de Anthropic (si no la tienes, añádela en **Credentials**)
+5. Clic en **Save Chatflow** (icono de nube arriba a la derecha)
+
+---
+
+##### 2. Publicar y obtener el Chatflow ID
+1. Clic en el botón **</>** (API Endpoint) arriba a la derecha
+2. Copia el **Chatflow ID** (un UUID largo)
+3. Copia también la **URL base** de tu Railway (ej: `https://tu-flowise.up.railway.app`)
+
+---
+
+##### 3. Configurar el snippet para Base44
+1. En la tab **🌐 Snippet Base44**, sustituye:
+   - `CHATFLOW_ID` → el UUID del paso anterior
+   - `https://tu-flowise.up.railway.app` → tu URL de Railway
+2. Descarga el snippet `.html`
+
+---
+
+##### 4. Pegar en Base44
+1. Abre el proyecto del cliente en Base44
+2. Añade un bloque de **código HTML / Embed**
+3. Pega el contenido del snippet
+4. Publica la web
+
+---
+
+##### 5. Probar
+- Abre la web del cliente → debe aparecer el botón del chat (abajo a la derecha)
+- Prueba con preguntas reales del negocio (servicios, precios, horarios)
+
+---
+
+##### Si el catálogo es muy largo (>20 servicios o PDF extenso)
+Considera añadir en Flowise un nodo **PDF File Loader + In-Memory Vector Store**
+conectado a un **Conversational Retrieval QA Chain** en lugar del ConversationChain básico.
+Esto activa RAG real: el bot busca en el documento en vez de leerlo todo en el prompt.
+""")
+
+        with tab_doc:
+            st.markdown("#### Integración Chatbot + Doctoralia + Google Calendar")
+            st.caption("Genera el workflow de n8n que conecta el chatbot con el calendario de Doctoralia para gestionar citas sin solapamientos.")
+
+            st.info(
+                "**Cómo funciona:** el chatbot recoge nombre, teléfono, servicio y fecha. "
+                "Llama a este workflow vía webhook. n8n descarga el iCal de Doctoralia, "
+                "comprueba si el hueco está libre, crea el evento en Google Calendar y "
+                "envía la confirmación por email. Si está ocupado, devuelve las 3 próximas franjas libres.",
+                icon="ℹ️",
+            )
+
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                ical_url_input = st.text_input(
+                    "URL del iCal de Doctoralia",
+                    placeholder="https://www.doctoralia.es/ical/XXXXXXXX.ics",
+                    help="En Doctoralia → Mi agenda → Sincronizar calendario → Copiar enlace iCal",
+                )
+                email_clinica_input = st.text_input(
+                    "Email de la clínica",
+                    placeholder="clinica@ejemplo.com",
+                )
+            with col_d2:
+                gcal_id_input = st.text_input(
+                    "Google Calendar ID",
+                    value="primary",
+                    help="En Google Calendar → Configuración del calendario → ID del calendario (acaba en @group.calendar.google.com o es 'primary')",
+                )
+                duracion_input = st.number_input(
+                    "Duración de la cita (minutos)",
+                    min_value=10, max_value=120, value=30, step=5,
+                )
+
+            if st.button("⚙️ Generar workflow n8n", type="primary", key="btn_n8n"):
+                from agents.specialists.n8n_export import generar_workflow_doctoralia
+                n8n_json = generar_workflow_doctoralia(
+                    nombre_clinica=business_name or "Clínica",
+                    google_calendar_id=gcal_id_input or "primary",
+                    ical_url=ical_url_input or "https://www.doctoralia.es/ical/XXXXXXXX.ics",
+                    email_clinica=email_clinica_input or "clinica@ejemplo.com",
+                    duracion_cita_min=int(duracion_input),
+                )
+                slug_n8n = (business_name or "clinica").lower().replace(" ", "_")
+
+                st.success("Workflow generado. Impórtalo en n8n desde **File → Import → From JSON**.")
+                st.code(n8n_json, language="json")
+                st.download_button(
+                    "⬇️ Descargar workflow n8n (.json)",
+                    data=n8n_json,
+                    file_name=f"n8n_doctoralia_{slug_n8n}.json",
+                    mime="application/json",
+                )
+
+                st.divider()
+                st.markdown("""
+#### Configuración en n8n tras importar
+
+1. **Credencial Google Calendar**
+   - n8n → Credentials → Add → Google Calendar OAuth2
+   - Sigue el flujo OAuth con la cuenta Google de la clínica
+
+2. **Credencial Gmail** *(para el email de confirmación)*
+   - n8n → Credentials → Add → Gmail OAuth2
+   - Misma cuenta Google o una específica para notificaciones
+
+3. **URL del Webhook** *(para conectar con Flowise)*
+   - Activa el workflow → clic en el nodo **Webhook Citas** → copia la URL de producción
+   - Formato: `https://tu-n8n.railway.app/webhook/doctoralia-cita`
+
+4. **En Flowise** — añade un nodo HTTP Request al final del chatflow:
+   - Method: POST
+   - URL: la URL del webhook de n8n
+   - Body (JSON):
+   ```json
+   {
+     "nombre":    "{{ $vars.nombre_paciente }}",
+     "telefono":  "{{ $vars.telefono }}",
+     "email":     "{{ $vars.email }}",
+     "servicio":  "{{ $vars.servicio }}",
+     "fecha_iso": "{{ $vars.fecha_iso }}"
+   }
+   ```
+
+5. **Obtener el iCal de Doctoralia**
+   - Doctoralia → perfil del médico → Agenda → Sincronizar calendario → Copiar enlace iCal
+   - El enlace tiene formato: `https://www.doctoralia.es/ical/XXXXXXXX.ics`
+""")
 
 
 # ─── Autonomous Agent ─────────────────────────────────────────────────────────
@@ -427,13 +750,86 @@ elif page == "🎬 VideoStudio":
             language = st.selectbox("Idioma", ["es", "en"])
             show_narration = st.checkbox("Ver narración completa")
 
+        # ── Briefing adicional ────────────────────────────────────────────────
+        with st.expander("📋 Briefing adicional — puntos clave, referencias y pistas visuales", expanded=False):
+            st.caption("Todo lo que pongas aquí lo recibirá la IA como directrices obligatorias al escribir el guión.")
+
+            brief_key_points_raw = st.text_area(
+                "Puntos clave a incluir (uno por línea)",
+                placeholder="15-20 min de sol por la mañana es suficiente\nEl sol regula el cortisol y la melatonina\nEstudio Harvard 2023: 7% menos riesgo de depresión con exposición diaria",
+                height=110,
+                key="script_key_points",
+            )
+
+            col_ref1, col_ref2 = st.columns([2, 1])
+            with col_ref1:
+                brief_reference_raw = st.text_area(
+                    "Material de referencia (pega texto de papers, artículos, estudios)",
+                    placeholder="Copia aquí el texto de cualquier paper o artículo que quieras que la IA use como fuente...",
+                    height=110,
+                    key="script_reference",
+                )
+            with col_ref2:
+                pdf_upload = st.file_uploader("O sube un PDF", type=["pdf"], key="script_pdf")
+                if pdf_upload:
+                    try:
+                        from pypdf import PdfReader
+                        import io as _io
+                        reader = PdfReader(_io.BytesIO(pdf_upload.read()))
+                        pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)[:5000]
+                        st.session_state["brief_pdf_text"] = pdf_text
+                        st.success(f"✅ PDF cargado ({len(pdf_text):,} chars)")
+                    except Exception as e:
+                        st.error(f"Error leyendo PDF: {e}")
+
+            brief_cues_raw = st.text_area(
+                "Pistas visuales (formato: tema → descripción clip Pexels)",
+                placeholder="Warren Buffett → stock market charts warren buffett\nvitamina D → morning sunlight outdoor person\ndeporte → weight training gym person",
+                height=80,
+                key="script_visual_cues",
+            )
+
+            brief_avoid_raw = st.text_input(
+                "Evitar (temas que NO debe tocar el video, separados por coma)",
+                placeholder="miedo al cáncer, quemaduras solares, bronceado artificial",
+                key="script_avoid",
+            )
+
+        def _build_brief_from_ui():
+            b = {}
+            kp = [l.strip() for l in brief_key_points_raw.splitlines() if l.strip()]
+            if kp:
+                b["key_points"] = kp
+            ref = st.session_state.get("brief_pdf_text", "") or brief_reference_raw.strip()
+            if ref:
+                b["reference_text"] = ref[:5000]
+            if brief_cues_raw.strip():
+                cues = {}
+                for line in brief_cues_raw.splitlines():
+                    if "→" in line:
+                        parts = line.split("→", 1)
+                        cues[parts[0].strip()] = parts[1].strip()
+                if cues:
+                    b["visual_cues"] = cues
+                    st.session_state["brief_visual_cues"] = cues
+            if brief_avoid_raw.strip():
+                b["avoid"] = [a.strip() for a in brief_avoid_raw.split(",") if a.strip()]
+            return b if b else None
+
         if st.button("📝 Generar guión", type="primary", disabled=not topic.strip(), key="btn_script"):
             from agents.specialists.video.script_agent import ScriptAgent
             import json
 
+            brief = _build_brief_from_ui()
+            if brief:
+                n_kp = len(brief.get("key_points", []))
+                n_cues = len(brief.get("visual_cues", {}))
+                st.toast(f"Brief activo: {n_kp} puntos · {n_cues} visual cues", icon="📋")
+
             with st.spinner("Generando guión con IA..."):
                 vs = ScriptAgent().run(topic=topic, niche=niche,
-                                      duration_minutes=duration, platform=platform, language=language)
+                                      duration_minutes=duration, platform=platform, language=language,
+                                      brief=brief)
 
             st.success(f"✅ {vs.youtube_title}")
             c1, c2, c3 = st.columns(3)
@@ -522,10 +918,14 @@ elif page == "🎬 VideoStudio":
                 st.stop()
 
             orient = "portrait" if "portrait" in orientation else "landscape"
+            visual_cues = st.session_state.get("brief_visual_cues")
+            if visual_cues:
+                st.info(f"Aplicando {len(visual_cues)} pistas visuales del brief", icon="📋")
             with st.spinner("Buscando y descargando clips de Pexels..."):
                 mo = MediaAgent().run(script_data=script_data, voice_data=voice_data,
                                      output_dir=output_media_dir, orientation=orient,
-                                     clips_per_section=clips_per_section)
+                                     clips_per_section=clips_per_section,
+                                     visual_cues=visual_cues)
 
             total_clips = sum(len(s.clips) for s in mo.sections)
             st.success(f"✅ {total_clips} clips descargados en {len(mo.sections)} secciones")
@@ -669,6 +1069,46 @@ elif page == "🚀 Pipeline Completo":
         bgm_v       = st.slider("Volumen BGM", 0.0, 0.3, 0.08, step=0.01, key="pl_bgm")
         output_slug = st.text_input("Nombre carpeta", placeholder="mi_video", key="pl_slug")
 
+    # ── Brief creativo ────────────────────────────────────────────────────────
+    with st.expander("📋 Briefing adicional — puntos clave, referencias y pistas visuales", expanded=False):
+        st.caption("Directrices que la IA debe seguir al escribir el guión. Todo es opcional.")
+
+        pl_key_points_raw = st.text_area(
+            "Puntos clave (uno por línea)",
+            placeholder="15 min de sol matutino es suficiente\nRegula el cortisol y la melatonina",
+            height=100,
+            key="pl_key_points",
+        )
+        col_pr1, col_pr2 = st.columns([2, 1])
+        with col_pr1:
+            pl_reference_raw = st.text_area(
+                "Material de referencia (texto de papers, artículos)",
+                height=90,
+                key="pl_reference",
+            )
+        with col_pr2:
+            pl_pdf_upload = st.file_uploader("O sube un PDF", type=["pdf"], key="pl_pdf")
+            if pl_pdf_upload:
+                try:
+                    from pypdf import PdfReader
+                    import io as _io
+                    reader = PdfReader(_io.BytesIO(pl_pdf_upload.read()))
+                    pl_pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)[:5000]
+                    st.session_state["pl_brief_pdf_text"] = pl_pdf_text
+                    st.success(f"✅ {len(pl_pdf_text):,} chars")
+                except Exception as e:
+                    st.error(str(e))
+        pl_cues_raw = st.text_area(
+            "Pistas visuales (tema → descripción clip Pexels)",
+            placeholder="Warren Buffett → stock market charts warren buffett\nvitamina D → morning sunlight outdoor person",
+            height=80,
+            key="pl_visual_cues",
+        )
+        pl_avoid_raw = st.text_input(
+            "Evitar (separado por comas)",
+            key="pl_avoid",
+        )
+
     st.divider()
     st.markdown("**Publicar al terminar (opcional)**")
     pub_platforms = st.multiselect("Plataformas", ["youtube", "tiktok"], key="pl_platforms")
@@ -697,6 +1137,26 @@ elif page == "🚀 Pipeline Completo":
         provider = "edge" if "edge" in tts_prov else "elevenlabs"
         base = Path("outputs")
 
+        # Construir brief desde UI del pipeline
+        _pl_brief = {}
+        _pl_kp = [l.strip() for l in pl_key_points_raw.splitlines() if l.strip()]
+        if _pl_kp:
+            _pl_brief["key_points"] = _pl_kp
+        _pl_ref = st.session_state.get("pl_brief_pdf_text", "") or pl_reference_raw.strip()
+        if _pl_ref:
+            _pl_brief["reference_text"] = _pl_ref[:5000]
+        _pl_cues = {}
+        for _line in pl_cues_raw.splitlines():
+            if "→" in _line:
+                _parts = _line.split("→", 1)
+                _pl_cues[_parts[0].strip()] = _parts[1].strip()
+        if _pl_cues:
+            _pl_brief["visual_cues"] = _pl_cues
+        if pl_avoid_raw.strip():
+            _pl_brief["avoid"] = [a.strip() for a in pl_avoid_raw.split(",") if a.strip()]
+        pl_brief = _pl_brief if _pl_brief else None
+        pl_visual_cues = _pl_cues if _pl_cues else None
+
         progress = st.progress(0)
         status   = st.empty()
 
@@ -704,7 +1164,7 @@ elif page == "🚀 Pipeline Completo":
         status.info("📝 Paso 1/5 — Generando guión...")
         progress.progress(5)
         vs = ScriptAgent().run(topic=topic, niche=niche, duration_minutes=duration,
-                               platform="both", language="es")
+                               platform="both", language="es", brief=pl_brief)
         script_data = vs.to_dict()
         (base / f"{slug}.json").parent.mkdir(parents=True, exist_ok=True)
         with open(base / f"{slug}.json", "w", encoding="utf-8") as f:
@@ -728,7 +1188,8 @@ elif page == "🚀 Pipeline Completo":
         status.info("🎞️ Paso 3/5 — Descargando clips Pexels...")
         media_dir = str(base / "media" / slug)
         mo = MediaAgent().run(script_data=script_data, voice_data=voice_data,
-                              output_dir=media_dir, orientation=orient, clips_per_section=4)
+                              output_dir=media_dir, orientation=orient, clips_per_section=4,
+                              visual_cues=pl_visual_cues)
         media_data = mo.to_dict()
         with open(Path(media_dir) / "media_output.json", "w", encoding="utf-8") as f:
             json.dump(media_data, f, ensure_ascii=False, indent=2)
@@ -822,7 +1283,7 @@ elif page == "🎯 ProspectorIA":
     # models esté recargado, que es justo lo que causaba el fallo).
     _CAMPOS_NUEVOS = {
         "scorecard": None, "win_probability": None,
-        "tech_stack": None, "pagespeed": None, "competitive": None, "automation": None,
+        "tech_stack": None, "pagespeed": None, "competitive": None, "automation": None, "gbp_audit": None,
         "ticket_promedio": None, "leads_mensuales": None, "conversion_actual": None,
         "roi_data": None, "perdida_total_mes": None,
         "servicios_recomendados": list, "perdidas": list, "paquetes": list,
@@ -1219,6 +1680,31 @@ elif page == "🎯 ProspectorIA":
             st.info(f"💡 {sel.resumen_oportunidad}")
 
         # ── Scorecard de Madurez Digital + Win Probability + Benchmark ──────
+        # ── Auditoría Google Business Profile ────────────────────────────────
+        gb = sel.gbp_audit if hasattr(sel, "gbp_audit") else None
+        if gb:
+            st.divider()
+            st.markdown("#### 📍 Ficha de Google Business Profile")
+            gbp_score = gb.get("completitud", 0)
+            gbp_nivel = gb.get("nivel", "")
+            color_gbp = "#16a34a" if gbp_score >= 75 else ("#eab308" if gbp_score >= 50 else ("#f97316" if gbp_score >= 25 else "#dc2626"))
+            cg1, cg2, cg3, cg4 = st.columns(4)
+            cg1.metric("Completitud GBP", f"{gbp_score}/100", delta=gbp_nivel)
+            cg2.metric("Fotos", f"{gb.get('num_fotos', 0)}", delta="✅" if gb.get("tiene_fotos") else "❌ Sin fotos")
+            cg3.metric("Horario", "✅ Sí" if gb.get("tiene_horario") else "❌ No publicado")
+            cg4.metric("Descripción", "✅ Sí" if gb.get("tiene_descripcion") else "❌ Falta")
+            if gb.get("senales_falta"):
+                with st.expander(f"⚠️ {len(gb['senales_falta'])} punto(s) de mejora en Google"):
+                    for s in gb["senales_falta"]:
+                        st.markdown(f"- {s}")
+            if gb.get("senales_ok"):
+                with st.expander(f"✅ {len(gb['senales_ok'])} punto(s) bien cubiertos"):
+                    for s in gb["senales_ok"]:
+                        st.markdown(f"- {s}")
+            if gb.get("categoria"):
+                st.caption(f"Categoría Google: **{gb['categoria']}** · Maps: {gb.get('maps_uri', '—')}")
+            st.markdown(f"<small style='color:#64748b'>{gb.get('oportunidad','')}</small>", unsafe_allow_html=True)
+
         # ── Sistemas autónomos / IA (el sello de MerakIA — lo primero) ─────
         au = sel.automation or {}
         if au:
@@ -1547,7 +2033,22 @@ elif page == "🎯 ProspectorIA":
             if r.mensual > 0:
                 precio_txt += f" + {r.mensual:.0f}€/mes"
             cols[2].markdown(f"<div style='text-align:right'><b>{precio_txt}</b></div>", unsafe_allow_html=True)
-            cols[3].markdown(f"<small style='color:#10b981'>📈 {r.servicio.kpi}</small>", unsafe_allow_html=True)
+            # Impacto específico + evidencia estructurada
+            impacto = getattr(r, "impacto_especifico", "") or r.servicio.kpi
+            cols[3].markdown(f"<small style='color:#10b981'>📈 {impacto}</small>", unsafe_allow_html=True)
+            # Expandible con la evidencia estructurada
+            ev_v = getattr(r, "evidencia_verificada", [])
+            ev_e = getattr(r, "evidencia_estimada", [])
+            if ev_v or ev_e:
+                with st.expander("🔍 Ver evidencia", expanded=False):
+                    if ev_v:
+                        st.markdown("**Datos verificados** *(medidos directamente)*")
+                        for e in ev_v:
+                            st.markdown(f"- 🔵 {e}")
+                    if ev_e:
+                        st.markdown("**Datos estimados** *(proyección con supuestos del sector)*")
+                        for e in ev_e:
+                            st.markdown(f"- 🟡 {e}")
             if incluir:
                 seleccionados.append(r)
 

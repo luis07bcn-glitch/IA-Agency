@@ -24,6 +24,7 @@ from .scorecard import construir_scorecard, calcular_win_probability, aplicar_be
 from .competitive import aplicar_competitivo
 from .automation import analizar_automatizacion
 from .pagespeed import PageSpeedAnalyzer
+from .gbp_audit import analizar_gbp
 from .crm import CRM
 
 
@@ -106,7 +107,13 @@ class ProspectorAgent(BaseAgent):
         log("Clasificando reseñas...")
         result.resenas = self._review_miner.procesar(resenas_raw)
 
-        # 3b. Perfil de automatización / IA (¿tiene ya algún sistema autónomo?)
+        # 3b. Auditoría Google Business Profile (datos gratis que ya tenemos)
+        log("Auditando ficha de Google Business Profile...")
+        gbp_raw = getattr(negocio, "gbp_raw", None) or {}
+        perfil_gbp = analizar_gbp(gbp_raw, negocio)
+        result.gbp_audit = perfil_gbp.to_dict()
+
+        # 3c. Perfil de automatización / IA (¿tiene ya algún sistema autónomo?)
         log("Analizando sistemas autónomos / IA...")
         perfil_auto = analizar_automatizacion(
             result.tech_stack, result.web_checklist, negocio.tiene_web
@@ -127,6 +134,7 @@ class ProspectorAgent(BaseAgent):
         sc = construir_scorecard(
             negocio, result.web_checklist, result.resenas, result.tiempo_carga,
             automation=result.automation,
+            gbp_audit=result.gbp_audit,
         )
         result.scorecard = sc.to_dict()
         result.win_probability = calcular_win_probability(result, sc).to_dict()

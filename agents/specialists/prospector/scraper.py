@@ -19,6 +19,10 @@ SEARCH_FIELDS = ",".join([
 DETAILS_FIELDS = ",".join([
     "nationalPhoneNumber", "internationalPhoneNumber", "websiteUri",
     "rating", "userRatingCount", "reviews",
+    # GBP audit fields
+    "regularOpeningHours", "photos", "editorialSummary",
+    "businessStatus", "primaryTypeDisplayName", "primaryType",
+    "accessibilityOptions", "googleMapsUri",
 ])
 
 
@@ -98,6 +102,21 @@ class GooglePlacesScraper:
         negocio.web = result.get("websiteUri")
         negocio.tiene_web = bool(negocio.web)
 
+        # Guardar campos GBP raw para la auditoría
+        negocio.gbp_raw = {
+            "nationalPhoneNumber": result.get("nationalPhoneNumber"),
+            "internationalPhoneNumber": result.get("internationalPhoneNumber"),
+            "websiteUri": result.get("websiteUri"),
+            "regularOpeningHours": result.get("regularOpeningHours"),
+            "photos": result.get("photos", []),
+            "editorialSummary": result.get("editorialSummary"),
+            "businessStatus": result.get("businessStatus", "OPERATIONAL"),
+            "primaryTypeDisplayName": result.get("primaryTypeDisplayName"),
+            "primaryType": result.get("primaryType"),
+            "accessibilityOptions": result.get("accessibilityOptions"),
+            "googleMapsUri": result.get("googleMapsUri"),
+        }
+
         # Normalizar reseñas de la API nueva al formato clásico que consume review_miner
         resenas_raw = []
         for r in result.get("reviews", []):
@@ -107,6 +126,7 @@ class GooglePlacesScraper:
                 "rating": r.get("rating", 3),
                 "text": texto.get("text", "") if isinstance(texto, dict) else str(texto or ""),
                 "relative_time_description": r.get("relativePublishTimeDescription"),
+                "ownerResponse": r.get("ownerResponse"),
             })
 
         return negocio, resenas_raw

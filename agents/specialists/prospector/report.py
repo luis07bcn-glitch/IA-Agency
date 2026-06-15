@@ -51,6 +51,7 @@ def generar_informe_html(
     perd = result.perdidas or []
     comp = result.competitive or {}
     ps = result.pagespeed or {}
+    gb = result.gbp_audit if hasattr(result, "gbp_audit") else None or {}
     paquetes = result.paquetes or []
     reco = next((p for p in paquetes if p.get("recomendado")), (paquetes[0] if paquetes else None))
 
@@ -113,6 +114,20 @@ def generar_informe_html(
             f"(≈ {_eur((result.perdida_total_mes or 0) * 12)} €/año)</p>"
         )
 
+    # ── Ficha de Google Business Profile ─────────────────────────────────
+    if gb and gb.get("senales_falta"):
+        gbp_score = gb.get("completitud", 0)
+        color_gbp = _color_score(gbp_score)
+        problemas_gbp = "".join(f"<li>{p}</li>" for p in gb["senales_falta"])
+        secciones.append(
+            "<h2>📍 Tu ficha de Google Business — visibilidad local</h2>"
+            f"<p>Completitud de tu ficha de Google: <b style='color:{color_gbp}'>{gbp_score}/100</b>. "
+            f"La ficha de Google es lo primero que ven tus clientes antes de visitar tu web o llamarte.</p>"
+            f"{_barra(gbp_score, color_gbp)}"
+            f"<ul style='margin-top:12px'>{problemas_gbp}</ul>"
+            f"<p style='font-size:13px;color:#64748b'>{gb.get('oportunidad','')}</p>"
+        )
+
     # ── Sistemas autónomos / IA ───────────────────────────────────────────
     au = result.automation or {}
     if au:
@@ -146,12 +161,61 @@ def generar_informe_html(
 
     # ── Rendimiento web real ──────────────────────────────────────────────
     if ps and ps.get("performance_score") is not None:
-        extra = f" · LCP {ps['lcp_s']:.1f}s" if ps.get("lcp_s") else ""
+        score_ps = ps["performance_score"]
+        color_ps = _color_score(score_ps)
+
+        def _cwv_row(label, value, unit, umbral_ok, umbral_warn, invert=False):
+            """Fila de Core Web Vital con semáforo."""
+            if value is None:
+                return ""
+            if invert:
+                ok = value <= umbral_ok
+                warn = value <= umbral_warn
+            else:
+                ok = value <= umbral_ok
+                warn = value <= umbral_warn
+            color = "#16a34a" if ok else ("#eab308" if warn else "#dc2626")
+            icon = "✅" if ok else ("⚠️" if warn else "❌")
+            return (
+                f"<tr>"
+                f"<td style='font-weight:600'>{label}</td>"
+                f"<td style='text-align:right;font-weight:700;color:{color}'>{value}{unit}</td>"
+                f"<td>{icon}</td>"
+                f"<td style='font-size:12px;color:#64748b'>bueno &lt;{umbral_ok}{unit} · penaliza &gt;{umbral_warn}{unit}</td>"
+                f"</tr>"
+            )
+
+        lcp = ps.get("lcp_s")
+        cls = ps.get("cls")
+        fcp = ps.get("fcp_s")
+        tbt = ps.get("tbt_ms")
+
+        filas_cwv = "".join(filter(None, [
+            _cwv_row("LCP — carga principal", lcp, "s", 2.5, 4.0),
+            _cwv_row("FCP — primer elemento", fcp, "s", 1.8, 3.0),
+            _cwv_row("CLS — estabilidad visual", cls, "", 0.1, 0.25),
+            _cwv_row("TBT — bloqueo interacción", tbt, "ms", 200, 600),
+        ]))
+
+        lcp_argumento = ""
+        if lcp and lcp > 2.5:
+            lcp_argumento = (
+                f"<p style='background:#fef9c3;border-left:4px solid #eab308;"
+                f"padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;margin-top:12px'>"
+                f"<b>¿Qué significa para tu negocio?</b> Tu web tarda <b>{lcp}s</b> en mostrar "
+                f"el contenido principal en móvil. Google considera penalizable cualquier valor "
+                f"por encima de 2,5s — y el 70&nbsp;% de las búsquedas locales se hacen desde el "
+                f"móvil. Cada segundo de retraso reduce las conversiones aproximadamente un 7&nbsp;%.</p>"
+            )
+
         secciones.append(
-            "<h2>⚡ Rendimiento real de tu web (Google)</h2>"
-            f"<p>Puntuación PageSpeed: <b style='color:{_color_score(ps['performance_score'])}'>"
-            f"{ps['performance_score']}/100</b>{extra}. Google penaliza el posicionamiento de las "
-            f"webs lentas (LCP por encima de 2,5s).</p>"
+            "<h2>⚡ Rendimiento real de tu web (Google PageSpeed)</h2>"
+            f"<p>Puntuación global (móvil): "
+            f"<b style='font-size:20px;color:{color_ps}'>{score_ps}/100</b> — "
+            f"<i>{'bueno' if score_ps >= 90 else 'mejorable' if score_ps >= 50 else 'malo'}</i></p>"
+            f"{_barra(score_ps, color_ps)}"
+            f"<table class='dims' style='margin-top:14px'>{filas_cwv}</table>"
+            f"{lcp_argumento}"
         )
 
     # ── Solución recomendada + ROI ────────────────────────────────────────
@@ -210,17 +274,33 @@ def generar_informe_html(
   .pack-roi span {{ display:block; font-size:12px; color:#64748b; }}
   .pack-roi b {{ font-size:16px; }}
   .foot {{ padding:20px 36px; background:#f8fafc; font-size:13px; color:#64748b; }}
-  @media print {{ body {{ background:#fff; padding:0; }} .doc {{ box-shadow:none; }} }}
+  @media print {{
+    body {{ background:#fff; padding:0; }}
+    .doc {{ box-shadow:none; border-radius:0; }}
+    .pdf-btn {{ display:none !important; }}
+  }}
 </style></head>
 <body><div class="doc">
   <div class="top">
     <div class="brand">{agencia} · Diagnóstico digital</div>
     <h1>{b.nombre}</h1>
     <div class="sub">{b.tipo} · {b.ciudad} · {hoy}</div>
+    <button class="pdf-btn" onclick="window.print()"
+      style="margin-top:14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);
+             color:#fff;padding:7px 18px;border-radius:8px;cursor:pointer;font-size:13px;
+             font-weight:600;letter-spacing:.3px">
+      📄 Guardar como PDF
+    </button>
   </div>
   {cuerpo}
   <div class="foot">
     Informe preparado por <b>{agencia}</b> a partir de datos públicos y análisis automatizado.
     {contacto_html}
+    <button class="pdf-btn" onclick="window.print()"
+      style="margin-top:12px;display:block;background:{color_marca};border:none;
+             color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;
+             font-weight:600">
+      📄 Guardar como PDF
+    </button>
   </div>
 </div></body></html>"""
