@@ -1,0 +1,35 @@
+# Financial Analyzer — dependencias
+# Instalar: pip install -r financial_analyzer/requirements.txt
+
+# Datos
+fredapi>=0.5.1
+yfinance>=0.2.40
+eurostat>=0.2.9
+requests>=2.31.0
+
+# Almacenamiento
+duckdb>=0.10.0
+pandas>=2.2.0
+numpy>=1.26.0
+pyarrow>=16.0.0  # para Parquet
+
+# Análisis
+statsmodels>=0.14.0
+scikit-learn>=1.5.0
+
+# Motor regímenes (HMM opcional — Fase 3+)
+# hmmlearn>=0.3.0
+
+# Dashboard
+streamlit>=1.35.0
+plotly>=5.20.0
+
+# Alertas
+python-telegram-bot>=21.0
+
+# Indicadores técnicos (incompatible con Python 3.14 — usar cálculos propios en market_fetcher.py)
+# pandas-ta>=0.3.14b
+
+# Automatización (opcional — Fase 5)
+# prefect>=2.19.0
+# schedule>=1.2.0
