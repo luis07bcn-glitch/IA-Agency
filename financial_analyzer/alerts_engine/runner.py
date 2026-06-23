@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env", override=False)
 
 from financial_analyzer.fundamentals.scorer import score_ticker, WATCHLIST
-from financial_analyzer.alerts_engine.technical import get_technical_features
+from financial_analyzer.alerts_engine.polygon_fetcher import get_technical_features
 from financial_analyzer.alerts_engine.scorer import compute_unified_score
 from financial_analyzer.alerts_engine.llm_agent import generate_analysis
 from financial_analyzer.alerts.notifier import send_telegram
