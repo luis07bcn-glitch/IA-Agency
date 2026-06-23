@@ -3,6 +3,7 @@ Ingesta de datos técnicos desde Polygon.io (real-time).
 Fallback automático a yfinance si Polygon falla o no tiene datos.
 """
 import os
+import time
 from pathlib import Path
 from datetime import datetime, timedelta
 import pandas as pd
@@ -11,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", "").strip()
+POLYGON_REQUEST_DELAY = 0.5  # segundos entre requests para evitar rate limit
 
 
 def _rsi(series: pd.Series, period: int = 14) -> float | None:
@@ -115,16 +117,19 @@ def get_technical_features_polygon(ticker: str, days: int = 260) -> dict | None:
         return None
 
 
-def get_technical_features(ticker: str, days: int = 260) -> dict | None:
+def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = False) -> dict | None:
     """
-    Intenta Polygon primero (real-time), fallback a yfinance (15 min retrasado).
+    Descarga datos técnicos.
+    - use_polygon=True: intenta Polygon primero (para queries individuales)
+    - use_polygon=False: usa yfinance (para watchlists, evita rate limit)
     """
-    # Intentar Polygon
-    result = get_technical_features_polygon(ticker, days)
-    if result is not None:
-        return result
+    if use_polygon and POLYGON_API_KEY:
+        time.sleep(POLYGON_REQUEST_DELAY)  # Evitar rate limit
+        result = get_technical_features_polygon(ticker, days)
+        if result is not None:
+            return result
 
-    # Fallback a yfinance
+    # Fallback / Default: yfinance
     try:
         import yfinance as yf
 
@@ -178,7 +183,7 @@ def get_technical_features(ticker: str, days: int = 260) -> dict | None:
             "volume_ratio": round(vol_ratio, 2) if vol_ratio is not None else None,
             "roc_20d": round(roc_20d, 2) if roc_20d is not None else None,
             "roc_5d": round(roc_5d, 2) if roc_5d is not None else None,
-            "source": "yfinance_fallback",
+            "source": "yfinance",
         }
 
     except Exception as e:
