@@ -1,0 +1,45 @@
+name: Alertas IA — Análisis Diario
+
+on:
+  schedule:
+    # Lunes a viernes a las 07:15 CET (06:15 UTC)
+    # Ajusta la hora aquí si quieres otro horario
+    - cron: "15 6 * * 1-5"
+  workflow_dispatch:   # También permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  run-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install \
+            anthropic \
+            python-dotenv \
+            yfinance \
+            pandas \
+            requests
+
+      - name: Ejecutar análisis de alertas
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ALERT_SCORE_THRESHOLD: "72"
+          DEFAULT_MODEL: "claude-sonnet-4-6"
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          python financial_analyzer/alerts_engine/runner.py
