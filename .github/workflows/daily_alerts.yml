@@ -38,8 +38,18 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
           ALERT_SCORE_THRESHOLD: "72"
           DEFAULT_MODEL: "claude-sonnet-4-6"
           PYTHONIOENCODING: "utf-8"
         run: |
           python financial_analyzer/alerts_engine/runner.py
+
+      - name: Ejecutar simulación de Paper Trading
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          python financial_analyzer/alerts_engine/paper_runner.py
