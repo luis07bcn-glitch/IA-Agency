@@ -1,0 +1,67 @@
+# ============================================================================
+#  Docker Compose para PRODUCCION (un VPS)
+#  Levanta el stack completo: base de datos + API + frontend.
+#
+#  Uso:
+#    docker compose -f docker-compose.prod.yml up -d --build
+#
+#  IMPORTANTE:
+#   - Rellena el archivo .env con tus valores reales antes de arrancar.
+#   - Pon un proxy inverso (Caddy/Nginx) delante con HTTPS y, MUY importante,
+#     con autenticacion (esta app no tiene login). Solo el webhook de WhatsApp
+#     (/api/webhooks/ycloud) debe quedar accesible publicamente.
+# ============================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Dentro de la red de Docker, la BD se llama "db" y usa el puerto 5432.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      API_PORT: 3001
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      AGENT_MODEL: ${AGENT_MODEL}
+      YCLOUD_API_KEY: ${YCLOUD_API_KEY}
+      YCLOUD_WEBHOOK_SECRET: ${YCLOUD_WEBHOOK_SECRET}
+      YCLOUD_WHATSAPP_NUMBER: ${YCLOUD_WHATSAPP_NUMBER}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA}
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${API_HOST_PORT:-3001}:3001"
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # Se "hornea" en el build del frontend.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+
+volumes:
+  postgres-data:

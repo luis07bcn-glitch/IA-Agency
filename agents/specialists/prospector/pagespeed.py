@@ -75,9 +75,21 @@ class PageSpeedAnalyzer:
                 params.pop("key", None)
                 resp = requests.get(PSI_URL, params=params, timeout=self.timeout)
             if resp.status_code != 200:
+                import streamlit as st
+                try:
+                    err = resp.json().get("error", {})
+                    st.warning(f"PageSpeed API error {resp.status_code}: {err.get('message', resp.text[:200])}")
+                except Exception:
+                    st.warning(f"PageSpeed error {resp.status_code}: {resp.text[:200]}")
                 return None
             data = resp.json()
-        except Exception:
+        except requests.exceptions.Timeout:
+            import streamlit as st
+            st.warning("PageSpeed: tiempo de espera agotado (la web tardó más de 60s). Inténtalo de nuevo.")
+            return None
+        except Exception as e:
+            import streamlit as st
+            st.warning(f"PageSpeed: error de conexión — {e}")
             return None
 
         lh = data.get("lighthouseResult", {})

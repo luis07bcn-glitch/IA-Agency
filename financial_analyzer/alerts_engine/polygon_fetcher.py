@@ -14,6 +14,38 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", "").strip()
 POLYGON_REQUEST_DELAY = 0.5  # segundos entre requests para evitar rate limit
 
+# Sufijos de tickers europeos que cotizan en EUR
+_EUR_SUFFIXES = {".MC", ".DE", ".PA", ".MI", ".AS", ".LS", ".SW", ".BR"}
+
+_eur_usd_cache: dict = {}  # {timestamp_hora: tasa}
+
+
+def _get_eur_usd() -> float:
+    """Tipo de cambio EUR/USD cacheado por hora."""
+    import time
+    hour_key = int(time.time() // 3600)
+    if hour_key in _eur_usd_cache:
+        return _eur_usd_cache[hour_key]
+    try:
+        import yfinance as yf
+        rate = yf.Ticker("EURUSD=X").info.get("regularMarketPrice") or 1.0
+        _eur_usd_cache.clear()
+        _eur_usd_cache[hour_key] = float(rate)
+        return float(rate)
+    except Exception:
+        return 1.0
+
+
+def is_european(ticker: str) -> bool:
+    return any(ticker.endswith(s) for s in _EUR_SUFFIXES)
+
+
+def to_usd(price: float, ticker: str) -> float:
+    """Convierte precio a USD si el ticker cotiza en EUR."""
+    if is_european(ticker):
+        return round(price * _get_eur_usd(), 4)
+    return price
+
 
 def _rsi(series: pd.Series, period: int = 14) -> float | None:
     """Calcula RSI manualmente."""
@@ -81,9 +113,14 @@ def get_technical_features_polygon(ticker: str, days: int = 260) -> dict | None:
         if len(close) < 50:
             return None
 
-        price = float(close.iloc[-1])
-        sma50 = float(close.rolling(50).mean().iloc[-1])
-        sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+        raw_price = float(close.iloc[-1])
+        price = to_usd(raw_price, ticker)
+        fx = price / raw_price if raw_price else 1.0  # factor de conversión
+
+        sma50_raw = float(close.rolling(50).mean().iloc[-1])
+        sma200_raw = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+        sma50 = sma50_raw * fx
+        sma200 = sma200_raw * fx if sma200_raw else None
         rsi = _rsi(close)
 
         vol_ratio = None
@@ -101,6 +138,8 @@ def get_technical_features_polygon(ticker: str, days: int = 260) -> dict | None:
         return {
             "ticker": ticker,
             "price": round(price, 2),
+            "price_local": round(raw_price, 2),
+            "currency": "EUR" if is_european(ticker) else "USD",
             "rsi": round(rsi, 1) if rsi is not None else None,
             "sma50": round(sma50, 2),
             "sma200": round(sma200, 2) if sma200 else None,
@@ -117,14 +156,14 @@ def get_technical_features_polygon(ticker: str, days: int = 260) -> dict | None:
         return None
 
 
-def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = False) -> dict | None:
+def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = True) -> dict | None:
     """
     Descarga datos técnicos.
-    - use_polygon=True: intenta Polygon primero (para queries individuales)
-    - use_polygon=False: usa yfinance (para watchlists, evita rate limit)
+    - Tickers US: Polygon primero (real-time), yfinance como fallback.
+    - Tickers europeos (.MC, .DE, .PA…): yfinance directamente (Polygon no los cubre).
     """
-    if use_polygon and POLYGON_API_KEY:
-        time.sleep(POLYGON_REQUEST_DELAY)  # Evitar rate limit
+    if use_polygon and POLYGON_API_KEY and not is_european(ticker):
+        time.sleep(POLYGON_REQUEST_DELAY)
         result = get_technical_features_polygon(ticker, days)
         if result is not None:
             return result
@@ -133,6 +172,16 @@ def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = Fal
     try:
         import yfinance as yf
 
+        ticker_obj = yf.Ticker(ticker)
+
+        # Obtener precio actual (tiempo real o lo más reciente disponible)
+        info = ticker_obj.info or {}
+        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+
+        if current_price is None:
+            return None
+
+        # Descargar histórico para indicadores técnicos
         end = datetime.now()
         start = end - timedelta(days=days + 60)
         df = yf.download(
@@ -155,9 +204,14 @@ def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = Fal
         if len(close) < 50:
             return None
 
-        price = float(close.iloc[-1])
-        sma50 = float(close.rolling(50).mean().iloc[-1])
-        sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+        raw_price = float(current_price)
+        price = to_usd(raw_price, ticker)
+        fx = price / raw_price if raw_price else 1.0
+
+        sma50_raw = float(close.rolling(50).mean().iloc[-1])
+        sma200_raw = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+        sma50 = sma50_raw * fx
+        sma200 = sma200_raw * fx if sma200_raw else None
         rsi = _rsi(close)
 
         vol_ratio = None
@@ -175,6 +229,8 @@ def get_technical_features(ticker: str, days: int = 260, use_polygon: bool = Fal
         return {
             "ticker": ticker,
             "price": round(price, 2),
+            "price_local": round(raw_price, 2),
+            "currency": "EUR" if is_european(ticker) else "USD",
             "rsi": round(rsi, 1) if rsi is not None else None,
             "sma50": round(sma50, 2),
             "sma200": round(sma200, 2) if sma200 else None,

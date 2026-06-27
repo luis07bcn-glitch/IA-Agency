@@ -71,7 +71,8 @@ class VoiceAgent:
     description = "Convierte guiones en audio TTS con timestamps por palabra (Edge TTS gratis / ElevenLabs premium)"
 
     def __init__(self, elevenlabs_api_key: str = ""):
-        self._el_key = elevenlabs_api_key
+        from config import settings
+        self._el_key = elevenlabs_api_key or getattr(settings, "elevenlabs_api_key", "")
 
     # ── API pública ──────────────────────────────────────────────────────────
 
@@ -217,31 +218,38 @@ class VoiceAgent:
 
     # ── ElevenLabs (premium) ─────────────────────────────────────────────────
 
+    # IDs de voces multilingües de ElevenLabs (válidas en la API v2)
+    EL_VOICE_IDS = {
+        "biohacking":   "onwK4e9ZLuTAKqWW03F9",   # Daniel  — científico, neutro
+        "finanzas":     "pNInz6obpgDQGcFmaJgB",   # Adam    — autoridad clara
+        "motivacion":   "ErXwobaYiN019PkySvjV",   # Antoni  — energético
+        "tecnologia":   "TxGEqnHWrfWFTfGW9XjX",   # Josh    — experto directo
+        "curiosidades": "N2lVS1w4EtoT3dr4eOWO",   # Callum  — narrador ameno
+    }
+    EL_VOICE_NAMES = {
+        "biohacking":   "Daniel",
+        "finanzas":     "Adam",
+        "motivacion":   "Antoni",
+        "tecnologia":   "Josh",
+        "curiosidades": "Callum",
+    }
+
     def _run_elevenlabs(self, script_data, out: Path, voice: str, language: str, niche: str) -> VoiceOutput:
-        """Genera audio con ElevenLabs y estima timestamps por velocidad de locución."""
+        """Genera audio con ElevenLabs v2 API y estima timestamps por velocidad de locución."""
         try:
             from elevenlabs.client import ElevenLabs
-            from elevenlabs import VoiceSettings
         except ImportError:
             raise ImportError("Instala: pip install elevenlabs")
 
         if not self._el_key:
-            raise ValueError("ElevenLabs API key requerida. Pásala en __init__ o configura ELEVENLABS_API_KEY.")
+            raise ValueError("ElevenLabs API key requerida. Configura ELEVENLABS_API_KEY en .env")
 
         client = ElevenLabs(api_key=self._el_key)
 
-        # Mapa de voz por nicho para ElevenLabs
-        EL_VOICES = {
-            "biohacking": "Daniel",
-            "finanzas":   "Adam",
-            "motivacion": "Antoni",
-            "tecnologia": "Adam",
-            "curiosidades": "Antoni",
-        }
-        el_voice = EL_VOICES.get(niche, "Adam")
+        voice_id   = self.EL_VOICE_IDS.get(niche, "pNInz6obpgDQGcFmaJgB")   # Adam por defecto
+        voice_name = self.EL_VOICE_NAMES.get(niche, "Adam")
 
-        sections_audio: list[SectionAudio] = []
-        audio_files: list[str] = []
+        out.mkdir(parents=True, exist_ok=True)
 
         segments = [("hook", 0, script_data["hook"])]
         for s in script_data["sections"]:
@@ -249,22 +257,26 @@ class VoiceAgent:
             segments.append(("section", s["section_id"], text.strip()))
         segments.append(("outro", 999, script_data["outro"]))
 
+        sections_audio: list[SectionAudio] = []
+        audio_files: list[str] = []
+
         for seg_type, seg_id, text in segments:
-            fname = f"hook.mp3" if seg_type == "hook" else f"outro.mp3" if seg_type == "outro" else f"section_{seg_id}.mp3"
+            fname = "hook.mp3" if seg_type == "hook" else "outro.mp3" if seg_type == "outro" else f"section_{seg_id}.mp3"
             fpath = str(out / fname)
 
-            audio = client.generate(
+            # ElevenLabs SDK v2: text_to_speech.convert() devuelve un generador de bytes
+            audio_iter = client.text_to_speech.convert(
+                voice_id=voice_id,
                 text=text,
-                voice=el_voice,
-                model="eleven_multilingual_v2",
-                voice_settings=VoiceSettings(stability=0.5, similarity_boost=0.8, style=0.2),
+                model_id="eleven_multilingual_v2",
+                output_format="mp3_44100_128",
             )
             with open(fpath, "wb") as f:
-                for chunk in audio:
-                    f.write(chunk)
+                for chunk in audio_iter:
+                    if chunk:
+                        f.write(chunk)
 
             duration = self._get_duration(fpath)
-            # Estimar timestamps: ~150 palabras por minuto para ElevenLabs
             timestamps = self._estimate_timestamps(text, duration)
             sections_audio.append(SectionAudio(
                 section_id=seg_id,
@@ -281,7 +293,7 @@ class VoiceAgent:
         full_text = "\n\n".join(t for _, _, t in segments)
         return VoiceOutput(
             provider="elevenlabs",
-            voice_name=el_voice,
+            voice_name=voice_name,
             language=language,
             niche=niche,
             full_audio_file=full_audio,

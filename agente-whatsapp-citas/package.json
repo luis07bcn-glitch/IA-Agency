@@ -1,0 +1,18 @@
+{
+  "name": "agente-whatsapp-citas",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CRM single-tenant con agente de IA conectable a WhatsApp para gestion de citas. Ejemplo: centro de fisioterapia. Arquitectura generica.",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "dev:api": "pnpm --filter @app/api dev",
+    "dev:web": "pnpm --filter @app/web dev"
+  }
+}

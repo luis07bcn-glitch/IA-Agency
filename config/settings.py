@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     # Media
     pexels_api_key: str = ""
 
+    # Voice
+    elevenlabs_api_key: str = ""
+
+    # Financial Analyzer
+    fred_api_key: str = ""
+
     # App
     log_level: str = "INFO"
     debug: bool = False
@@ -22,6 +28,7 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
         "env_file_encoding": "utf-8",
+        "extra": "ignore",  # ignora variables del .env no declaradas (p.ej. PYTHONIOENCODING)
     }
 
 

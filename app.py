@@ -64,16 +64,26 @@ with st.sidebar:
     st.caption("Agencia de Inteligencia Artificial")
     st.divider()
 
+    _nav_options = [
+        "🏠 Dashboard", "💬 Chat", "📋 Project Manager", "🌐 Web Developer",
+        "📣 Contenido & Marketing", "🤖 Chatbot Specialist", "🎙️ Agente de Voz",
+        "🔔 Recordatorios & Fidelización", "⭐ Gestor de Reseñas", "📅 Content Engine",
+        "📄 Generador de PDFs", "⚡ Agente Autónomo", "🎬 VideoStudio",
+        "🚀 Pipeline Completo", "🎯 ProspectorIA", "📊 Base de Datos",
+    ]
+    # Navegación programática: si un botón del Dashboard pidió ir a otra página,
+    # aplicarlo ANTES de instanciar el radio (Streamlit lo permite vía session_state).
+    if "_goto" in st.session_state:
+        st.session_state.main_nav = st.session_state.pop("_goto")
+
     page = st.radio(
         "Navegación",
-        options=["🏠 Dashboard", "💬 Chat", "📋 Project Manager", "🌐 Web Developer",
-                 "📣 Contenido & Marketing", "🤖 Chatbot Specialist", "⚡ Agente Autónomo",
-                 "🎬 VideoStudio", "🚀 Pipeline Completo", "🎯 ProspectorIA",
-                 "📊 Base de Datos"],
+        options=_nav_options,
         label_visibility="collapsed",
+        key="main_nav",
     )
     st.divider()
-    st.caption("v1.0 · Claude Sonnet 4.6")
+    st.caption("v2.0 · MerakIA · 9 servicios activos")
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────
@@ -103,47 +113,92 @@ def download_button(content: str, filename: str) -> None:
 #  PAGES
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ─── Dashboard ────────────────────────────────────────────────────────────────
+# ─── Dashboard / Centro de Mando ──────────────────────────────────────────────
 if page == "🏠 Dashboard":
-    st.markdown('<div class="merakia-header">MerakIA · Panel de Agentes IA</div>',
+    st.markdown('<div class="merakia-header">MerakIA · Centro de Mando</div>',
                 unsafe_allow_html=True)
-    st.markdown("**Inteligencia Artificial que impulsa tu negocio**")
+    st.markdown("**Inteligencia Artificial con alma para negocios locales — todo en un clic.**")
     st.divider()
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Agentes activos", "11")
-    col2.metric("Workflows", "3")
-    col3.metric("Herramientas", "4")
+    col1.metric("Servicios activos", "9")
+    col2.metric("Agentes IA", "12")
+    col3.metric("Workflows n8n", "4")
     col4.metric("Modelo", "Sonnet 4.6")
 
     st.divider()
-    st.subheader("🚀 Agentes disponibles")
 
-    agents_info = [
-        ("🎯", "ProspectorIA", "Busca negocios, analiza sus dolores y genera ofertas irresistibles"),
-        ("💬", "Chat", "Asistente conversacional con memoria de sesión"),
-        ("📋", "Project Manager", "Orquesta el equipo completo para proyectos de cliente"),
-        ("🌐", "Web Developer", "Genera landing pages y código web listo para producción"),
-        ("📣", "Contenido & Marketing", "Copy, posts, emails y estrategia de contenidos"),
-        ("🤖", "Chatbot Specialist", "Diseña chatbots personalizados para negocios"),
-        ("⚡", "Autónomo", "Ejecuta tareas complejas con herramientas (calc, fecha, archivos)"),
-        ("🎬", "VideoStudio", "Guión + Voz + Clips + Edición + Subtítulos karaoke"),
-        ("📤", "PublishAgent", "Sube videos a YouTube y TikTok con metadata optimizada"),
-        ("🚀", "Pipeline Completo", "Tema → video listo en un solo paso automático"),
+    def _go(destino):
+        st.session_state._goto = destino
+        st.rerun()
+
+    # ── Servicios para clientes ────────────────────────────────────────────────
+    st.subheader("💼 Servicios para clientes")
+    servicios = [
+        ("🎯", "ProspectorIA", "Encuentra negocios, analiza sus dolores y genera ofertas", "🎯 ProspectorIA"),
+        ("🌐", "Web Developer", "Webs a medida por sector con reservas y dashboards", "🌐 Web Developer"),
+        ("📅", "Content Engine", "Calendario editorial de 30 días listo para publicar", "📅 Content Engine"),
+        ("🤖", "Chatbot IA", "Chatbots personalizados para web, WhatsApp e Instagram", "🤖 Chatbot Specialist"),
+        ("🎙️", "Agente de Voz", "Recepcionista IA que atiende llamadas y agenda citas 24/7", "🎙️ Agente de Voz"),
+        ("🔔", "Recordatorios", "Anti-no-show y fidelización automática por WhatsApp", "🔔 Recordatorios & Fidelización"),
+        ("⭐", "Gestor de Reseñas", "Monitoriza Google y responde reseñas con IA", "⭐ Gestor de Reseñas"),
+        ("📣", "Contenido & Marketing", "Copy, posts, emails y piezas sueltas al momento", "📣 Contenido & Marketing"),
+        ("🎬", "VideoStudio", "Guion + voz + clips + edición + subtítulos", "🎬 VideoStudio"),
     ]
-
     cols = st.columns(3)
-    for i, (icon, name, desc) in enumerate(agents_info):
+    for i, (icon, name, desc, destino) in enumerate(servicios):
         with cols[i % 3]:
             st.markdown(f"""
-            <div class="result-box">
+            <div class="result-box" style="min-height:104px">
               <b>{icon} {name}</b><br>
               <small style="color:#94A3B8">{desc}</small>
             </div>
             """, unsafe_allow_html=True)
+            if st.button(f"Abrir {name}", key=f"go_{i}", use_container_width=True):
+                _go(destino)
 
     st.divider()
-    st.info("👈 Selecciona un agente en el menú lateral para empezar.", icon="ℹ️")
+
+    # ── Herramientas internas ──────────────────────────────────────────────────
+    st.subheader("🛠️ Herramientas internas")
+    internas = [
+        ("📋", "Project Manager", "Orquesta el equipo completo para un proyecto de cliente", "📋 Project Manager"),
+        ("📄", "Generador de PDFs", "Catálogo de servicios y estrategia de captación", "📄 Generador de PDFs"),
+        ("💬", "Chat", "Asistente conversacional con memoria", "💬 Chat"),
+        ("⚡", "Agente Autónomo", "Tareas complejas con herramientas (cálculo, fechas, archivos)", "⚡ Agente Autónomo"),
+        ("🚀", "Pipeline Completo", "Tema → vídeo listo en un solo paso", "🚀 Pipeline Completo"),
+        ("📊", "Base de Datos", "Histórico de prospecciones y resultados", "📊 Base de Datos"),
+    ]
+    cols2 = st.columns(3)
+    for i, (icon, name, desc, destino) in enumerate(internas):
+        with cols2[i % 3]:
+            st.markdown(f"""
+            <div class="result-box" style="min-height:92px">
+              <b>{icon} {name}</b><br>
+              <small style="color:#94A3B8">{desc}</small>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"Abrir {name}", key=f"goint_{i}", use_container_width=True):
+                _go(destino)
+
+    st.divider()
+
+    # ── Otras plataformas MerakIA ──────────────────────────────────────────────
+    st.subheader("🌐 Otras plataformas del ecosistema")
+    st.caption("Apps independientes que se lanzan en su propio puerto (usa `start_all.ps1` para arrancarlas todas).")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("**🍽️ ChefMenu AI**")
+        st.caption("Generador de menús para restaurantes")
+        st.link_button("Abrir (:8503)", "http://localhost:8503", use_container_width=True)
+    with c2:
+        st.markdown("**📈 Financial Analyzer**")
+        st.caption("Sistema macro-financiero y alertas")
+        st.link_button("Abrir (:8504)", "http://localhost:8504", use_container_width=True)
+    with c3:
+        st.markdown("**✨ Web pública MerakIA**")
+        st.caption("La web de la agencia (Next.js)")
+        st.link_button("Abrir (:3860)", "http://localhost:3860", use_container_width=True)
 
 
 # ─── Chat ─────────────────────────────────────────────────────────────────────
@@ -245,49 +300,129 @@ elif page == "📋 Project Manager":
 
 # ─── Web Developer ────────────────────────────────────────────────────────────
 elif page == "🌐 Web Developer":
-    st.subheader("🌐 Web Developer Agent")
-    st.caption("Genera código web listo para producción — landing pages, componentes, APIs.")
-
-    task = st.text_area(
-        "¿Qué necesitas desarrollar?",
-        placeholder='Ej: "Landing page moderna para academia de yoga online con sección hero, servicios y formulario de contacto"',
-        height=120,
+    from agents.specialists.web_sector_templates import (
+        SECTORES, ESTILOS_VISUALES, construir_brief,
     )
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        output_file = st.text_input("Nombre de archivo (opcional)", placeholder="landing.html")
-    with col2:
-        max_tokens = st.selectbox("Tamaño output", [8000, 16000, 32000], index=1)
+    st.subheader("🌐 Web Developer Agent")
+    st.caption("Genera webs y landing pages a medida del sector — con calendario de reservas, catálogos, dashboards...")
 
-    if st.button("⚡ Generar código", type="primary", disabled=not task.strip()):
-        from agents.specialists.web_developer import WebDeveloperAgent
-        from tools.file_tool import save_to_file
+    if "web_resultado" not in st.session_state:
+        st.session_state.web_resultado = ""
+    if "web_nombre_archivo" not in st.session_state:
+        st.session_state.web_nombre_archivo = "web.html"
 
-        with st.spinner("Desarrollando... puede tardar 30-60s para páginas completas"):
-            result = WebDeveloperAgent().run(task, max_tokens=max_tokens)
+    modo = st.radio(
+        "Modo de creación",
+        ["🎯 Asistido por sector", "✍️ Prompt libre"],
+        horizontal=True,
+    )
 
-        # Strip markdown fences if present
-        if result.strip().startswith("```"):
-            lines = result.splitlines()
-            result = "\n".join(l for l in lines if not l.strip().startswith("```"))
+    # ── MODO ASISTIDO POR SECTOR ───────────────────────────────────────────────
+    if modo == "🎯 Asistido por sector":
+        col1, col2 = st.columns(2)
+        with col1:
+            sector_key = st.selectbox("Tipo de negocio", list(SECTORES.keys()))
+            web_nombre = st.text_input("Nombre del negocio", placeholder="Restaurante La Brasa")
+            web_ciudad = st.text_input("Ciudad / zona", placeholder="Barcelona")
 
-        st.success("✅ Código generado")
+        sector = SECTORES[sector_key]
 
-        tab1, tab2 = st.tabs(["📄 Código", "👁️ Preview"])
+        with col2:
+            # Pre-seleccionar el estilo sugerido del sector
+            estilos_list = list(ESTILOS_VISUALES.keys())
+            idx_estilo = estilos_list.index(sector["estilo_sugerido"]) if sector["estilo_sugerido"] in estilos_list else 0
+            web_estilo = st.selectbox("Estilo visual", estilos_list, index=idx_estilo)
+            st.caption(f"💡 {ESTILOS_VISUALES[web_estilo]}")
+            web_paleta = st.text_input("Paleta de colores (opcional)", placeholder=sector["paleta"])
+
+        st.markdown(f"**Secciones de la web** — recomendadas para {sector_key}:")
+        secciones_elegidas = []
+        cols_sec = st.columns(2)
+        for i, sec in enumerate(sector["secciones"]):
+            with cols_sec[i % 2]:
+                if st.checkbox(sec, value=True, key=f"sec_{i}"):
+                    secciones_elegidas.append(sec)
+
+        st.markdown("**Funcionalidades interactivas:**")
+        func_elegidas = []
+        cols_func = st.columns(2)
+        for i, func in enumerate(sector["funcionalidades"]):
+            with cols_func[i % 2]:
+                if st.checkbox(func, value=True, key=f"func_{i}"):
+                    func_elegidas.append(func)
+
+        web_detalles = st.text_area(
+            "Detalles adicionales (opcional)",
+            placeholder="Ej: queremos destacar el menú del día, tenemos terraza y aceptamos mascotas, el color corporativo es verde botella...",
+            height=90,
+        )
+
+        with st.expander("🔌 Integraciones sugeridas para este sector"):
+            st.write(sector["integraciones"])
+
+        col_a, col_b = st.columns([3, 1])
+        with col_b:
+            max_tokens = st.selectbox("Tamaño", [16000, 32000, 64000], index=1, key="mt_sector")
+
+        if st.button("⚡ Generar web a medida", type="primary", use_container_width=True):
+            brief = construir_brief(
+                sector_key=sector_key,
+                nombre_negocio=web_nombre,
+                ciudad=web_ciudad,
+                estilo=web_estilo,
+                secciones_elegidas=secciones_elegidas,
+                funcionalidades_elegidas=func_elegidas,
+                detalles_extra=web_detalles,
+                paleta_custom=web_paleta,
+            )
+            from agents.specialists.web_developer import WebDeveloperAgent
+            with st.spinner("Diseñando tu web a medida... puede tardar 60-90s para webs completas"):
+                result = WebDeveloperAgent().run(brief, max_tokens=int(max_tokens))
+            if result.strip().startswith("```"):
+                lines = result.splitlines()
+                result = "\n".join(l for l in lines if not l.strip().startswith("```"))
+            st.session_state.web_resultado = result
+            slug = (web_nombre or sector_key).replace(" ", "_").replace("/", "")
+            st.session_state.web_nombre_archivo = f"{slug}.html"
+
+    # ── MODO PROMPT LIBRE ──────────────────────────────────────────────────────
+    else:
+        task = st.text_area(
+            "¿Qué necesitas desarrollar?",
+            placeholder='Ej: "Landing page moderna para academia de yoga online con sección hero, servicios y formulario de contacto"',
+            height=120,
+        )
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            output_file = st.text_input("Nombre de archivo (opcional)", placeholder="landing.html")
+        with col2:
+            max_tokens = st.selectbox("Tamaño output", [8000, 16000, 32000, 64000], index=1, key="mt_libre")
+
+        if st.button("⚡ Generar código", type="primary", disabled=not task.strip()):
+            from agents.specialists.web_developer import WebDeveloperAgent
+            with st.spinner("Desarrollando... puede tardar 30-90s para páginas completas"):
+                result = WebDeveloperAgent().run(task, max_tokens=int(max_tokens))
+            if result.strip().startswith("```"):
+                lines = result.splitlines()
+                result = "\n".join(l for l in lines if not l.strip().startswith("```"))
+            st.session_state.web_resultado = result
+            st.session_state.web_nombre_archivo = output_file or "web.html"
+
+    # ── RESULTADO (común a ambos modos) ────────────────────────────────────────
+    if st.session_state.web_resultado:
+        result = st.session_state.web_resultado
+        st.success("✅ Web generada")
+        tab1, tab2 = st.tabs(["👁️ Preview", "📄 Código"])
         with tab1:
-            st.code(result, language="html" if "html" in task.lower() else "text")
-        with tab2:
-            if "html" in result.lower()[:50]:
-                st.components.v1.html(result, height=600, scrolling=True)
+            if "<html" in result.lower() or "<!doctype" in result.lower():
+                st.components.v1.html(result, height=700, scrolling=True)
             else:
                 st.info("Preview disponible solo para HTML completo.")
+        with tab2:
+            st.code(result, language="html")
 
-        if output_file:
-            info = save_to_file(output_file, result)
-            st.caption(f"💾 Guardado en `{info['saved']}`")
-
-        download_button(result, output_file or "output.html")
+        download_button(result, st.session_state.web_nombre_archivo)
 
 
 # ─── Content & Marketing ──────────────────────────────────────────────────────
@@ -696,6 +831,919 @@ Esto activa RAG real: el bot busca en el documento en vez de leerlo todo en el p
 """)
 
 
+# ─── Agente de Voz ───────────────────────────────────────────────────────────
+elif page == "🎙️ Agente de Voz":
+    st.subheader("🎙️ Agente de Voz con IA")
+    st.caption("Crea una recepcionista virtual que atiende llamadas, agenda citas y reduce no-shows. Exporta a Vapi.ai.")
+
+    # ── Formulario de configuración ──────────────────────────────────────────
+    with st.form("voice_agent_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            va_nombre = st.text_input("Nombre del negocio *", placeholder="Clínica Dental Smile")
+            va_sector = st.selectbox(
+                "Sector *",
+                ["Clínica dental", "Clínica estética / medicina estética", "Peluquería / barbería",
+                 "Centro de fisioterapia", "Psicología / terapia", "Restaurante / bar",
+                 "Despacho profesional (asesoría, abogado)", "Taller mecánico", "Otro"],
+            )
+            va_nombre_asistente = st.text_input(
+                "Nombre de la asistente virtual",
+                placeholder="Sofía",
+                help="El nombre con el que se presentará la IA al contestar la llamada",
+            )
+            va_telefono = st.text_input("Teléfono de atención humana (escalado)", placeholder="93 123 45 67")
+
+        with col2:
+            va_horario = st.text_area(
+                "Horario de atención *",
+                placeholder="Lunes a viernes: 9h a 20h\nSábados: 10h a 14h\nDomingos: cerrado",
+                height=100,
+            )
+            va_servicios = st.text_area(
+                "Servicios principales con precios (si los hay) *",
+                placeholder="Limpieza bucal: 60€\nBlanqueamiento: 250€\nOrtodoncia: consultar\nExtracción: desde 80€",
+                height=100,
+            )
+
+        va_info_extra = st.text_area(
+            "Información adicional (ubicación, aparcamiento, seguros, idiomas, etc.)",
+            placeholder="Estamos en Calle Mayor 15, Barcelona. Aceptamos Adeslas y Sanitas. Hablamos inglés y catalán.",
+            height=80,
+        )
+
+        col3, col4 = st.columns(2)
+        with col3:
+            va_voz = st.selectbox(
+                "Voz del agente",
+                options=["mujer_profesional", "mujer_calida", "hombre_profesional", "hombre_jovial"],
+                format_func=lambda v: {
+                    "mujer_profesional": "Mujer — profesional y clara",
+                    "mujer_calida": "Mujer — cálida y empática",
+                    "hombre_profesional": "Hombre — profesional y directo",
+                    "hombre_jovial": "Hombre — jovial y cercano",
+                }[v],
+            )
+        with col4:
+            va_webhook = st.text_input(
+                "URL webhook n8n (opcional)",
+                placeholder="https://tu-n8n.railway.app/webhook/citas",
+                help="Si tienes n8n configurado, el agente enviará los datos de la cita a esta URL",
+            )
+
+        va_submit = st.form_submit_button("🎙️ Generar Agente de Voz", type="primary", use_container_width=True)
+
+    # ── Base de conocimiento (fuera del form — limitación Streamlit) ───────────
+    st.markdown("#### Documentos del negocio (opcional pero muy recomendado)")
+    st.caption(
+        "Sube la carta, menú, lista de tratamientos, precios, FAQs, políticas... "
+        "Cuanta más información real, más preciso será el agente al contestar llamadas."
+    )
+    va_uploaded = st.file_uploader(
+        "Arrastra aquí los archivos (PDF o TXT)",
+        type=["pdf", "txt"],
+        accept_multiple_files=True,
+        key="va_docs",
+        help="Ejemplos: carta del restaurante, catálogo de tratamientos, tarifas, política de cancelación.",
+    )
+
+    va_knowledge_base = ""
+    if va_uploaded:
+        textos = []
+        for f in va_uploaded:
+            if f.type == "application/pdf":
+                try:
+                    from pypdf import PdfReader
+                    import io as _io
+                    reader = PdfReader(_io.BytesIO(f.read()))
+                    texto = "\n".join(p.extract_text() or "" for p in reader.pages)
+                    textos.append(f"[Documento: {f.name}]\n{texto.strip()}")
+                except Exception as e:
+                    st.warning(f"No se pudo leer {f.name}: {e}")
+            elif f.type == "text/plain":
+                try:
+                    texto = f.read().decode("utf-8", errors="ignore")
+                    textos.append(f"[Documento: {f.name}]\n{texto.strip()}")
+                except Exception as e:
+                    st.warning(f"No se pudo leer {f.name}: {e}")
+        if textos:
+            va_knowledge_base = "\n\n---\n\n".join(textos)
+            total_chars = len(va_knowledge_base)
+            st.success(f"✅ {len(textos)} archivo(s) cargado(s) — {total_chars:,} caracteres de conocimiento.")
+            with st.expander("Vista previa del contenido extraído"):
+                st.text(va_knowledge_base[:2000] + ("..." if total_chars > 2000 else ""))
+
+    st.divider()
+
+    # ── Generación ─────────────────────────────────────────────────────────────
+    if va_submit:
+        if not va_nombre or not va_horario or not va_servicios:
+            st.error("Rellena al menos: nombre del negocio, horario y servicios.")
+        else:
+            nombre_asistente = va_nombre_asistente.strip() or "Sofía"
+
+            kb_section = ""
+            if va_knowledge_base:
+                kb_truncado = va_knowledge_base[:14000] + ("..." if len(va_knowledge_base) > 14000 else "")
+                kb_section = f"""
+
+BASE DE CONOCIMIENTO COMPLETA DEL NEGOCIO (documentos reales subidos por el cliente):
+--- INICIO DOCUMENTOS ---
+{kb_truncado}
+--- FIN DOCUMENTOS ---
+
+USA ESTA INFORMACIÓN para completar el system prompt con datos reales:
+menú, tratamientos, precios, políticas de cancelación, normas, servicios especiales, etc.
+Si el documento tiene precios, úsalos exactamente. Si tiene servicios, nómbralos todos."""
+
+            brief = f"""Negocio: {va_nombre}
+Sector: {va_sector}
+Nombre de la asistente: {nombre_asistente}
+Teléfono de escalado a humano: {va_telefono or "no indicado — siempre escalar si el cliente insiste"}
+Horario: {va_horario}
+Servicios y precios (resumen manual): {va_servicios}
+Información adicional: {va_info_extra or "ninguna"}{kb_section}
+
+Crea el system prompt completo para un agente de voz telefónico para este negocio.
+El agente debe presentarse como {nombre_asistente}, recepcionista de {va_nombre}.
+El objetivo principal es agendar citas o tomar pedidos según el sector.
+Las respuestas deben ser muy cortas y naturales para voz, sin markdown."""
+
+            with st.spinner("Generando agente de voz..."):
+                from agents.specialists.voice_agent_specialist import VoiceAgentSpecialist
+                specialist = VoiceAgentSpecialist()
+                resultado = specialist.run(brief)
+
+            st.session_state["voice_agent_resultado"] = resultado
+            st.session_state["voice_agent_nombre"] = va_nombre
+            st.session_state["voice_agent_voz"] = va_voz
+            st.session_state["voice_agent_webhook"] = va_webhook
+            st.session_state["voice_agent_sector"] = va_sector
+            st.success("✅ Agente generado")
+
+    # ── Resultado ──────────────────────────────────────────────────────────────
+    if st.session_state.get("voice_agent_resultado"):
+        resultado = st.session_state["voice_agent_resultado"]
+        nombre_neg = st.session_state.get("voice_agent_nombre", "negocio")
+        voz_key = st.session_state.get("voice_agent_voz", "mujer_profesional")
+        webhook = st.session_state.get("voice_agent_webhook", "")
+        slug = nombre_neg.lower().replace(" ", "_")[:30]
+
+        tab_sp, tab_vapi, tab_agenda, tab_guide = st.tabs([
+            "📝 System Prompt de Voz",
+            "📦 Exportar a Vapi.ai",
+            "📅 Agenda en tiempo real",
+            "🚀 Guía de Despliegue",
+        ])
+
+        with tab_sp:
+            st.markdown("#### System prompt optimizado para voz")
+            st.caption("Texto completo generado por la IA — incluye flujos, ejemplos y palabras de escalado.")
+            st.markdown(resultado)
+            st.download_button(
+                "⬇️ Descargar system prompt",
+                data=resultado,
+                file_name=f"voice_agent_{slug}.md",
+                mime="text/markdown",
+            )
+
+        with tab_vapi:
+            st.markdown("#### Configuración para Vapi.ai")
+            st.caption("Importa este JSON en dashboard.vapi.ai → Assistants → Import (↑)")
+
+            # Extraer first_message y end_call_message del resultado si están presentes
+            import re
+            first_msg = f"¡Hola! Has llamado a {nombre_neg}. Soy {st.session_state.get('voice_agent_nombre', 'la asistente')}. ¿En qué puedo ayudarte hoy?"
+            end_msg = "Perfecto, muchas gracias por llamar. ¡Hasta pronto!"
+
+            m = re.search(r'##\s*2\.\s*PRIMER MENSAJE.*?\n+(.+?)(?:\n\n|\n##)', resultado, re.DOTALL | re.IGNORECASE)
+            if m:
+                extracted = m.group(1).strip().strip('"').strip("*").strip()
+                if len(extracted) > 10:
+                    first_msg = extracted
+
+            m2 = re.search(r'##\s*3\.\s*MENSAJE DE CIERRE.*?\n+(.+?)(?:\n\n|\n##)', resultado, re.DOTALL | re.IGNORECASE)
+            if m2:
+                extracted2 = m2.group(1).strip().strip('"').strip("*").strip()
+                if len(extracted2) > 5:
+                    end_msg = extracted2
+
+            from agents.specialists.vapi_export import generar_vapi_assistant, VOCES_ELEVENLABS
+            vapi_json = generar_vapi_assistant(
+                system_prompt=resultado,
+                first_message=first_msg,
+                end_call_message=end_msg,
+                nombre_negocio=nombre_neg,
+                voz_clave=voz_key,
+                webhook_url=webhook,
+            )
+
+            st.code(vapi_json[:800] + "\n...", language="json")
+            st.download_button(
+                "⬇️ Descargar vapi_assistant.json",
+                data=vapi_json,
+                file_name=f"vapi_{slug}.json",
+                mime="application/json",
+            )
+
+            voz_info = VOCES_ELEVENLABS.get(voz_key, VOCES_ELEVENLABS["mujer_profesional"])
+            st.info(f"🎤 Voz seleccionada: **{voz_info['nombre']}** · ElevenLabs ID: `{voz_info['voiceId']}`")
+
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("Modelo LLM", "Claude Haiku 4.5")
+            col_b.metric("Transcriptor", "Deepgram nova-2 ES")
+            col_c.metric("Max duración", "5 min / llamada")
+
+        with tab_agenda:
+            st.markdown("#### Agenda en tiempo real — sin dobles reservas")
+            st.caption(
+                "El agente consulta el calendario **antes** de proponer una hora. "
+                "Solo confirma la cita cuando el paciente dice que sí. "
+                "Todo queda en Google Calendar automáticamente."
+            )
+
+            st.info(
+                "**Cómo funciona:**\n\n"
+                "1. El paciente llama y pide cita\n"
+                "2. El agente llama a `check_availability` → n8n consulta Google Calendar → devuelve huecos libres\n"
+                "3. El agente propone los huecos: *\"Tengo las 10h o las 16h, ¿cuál le va mejor?\"*\n"
+                "4. El paciente elige\n"
+                "5. El agente pide nombre y teléfono, luego llama a `book_appointment`\n"
+                "6. n8n crea el evento en Google Calendar al instante\n"
+                "7. El agente confirma verbalmente: *\"Listo, le apunto el martes a las 10h\"*\n\n"
+                "El calendario es siempre la fuente de verdad. Nunca hay dobles reservas."
+            )
+
+            with st.form("agenda_form"):
+                col_a1, col_a2 = st.columns(2)
+                with col_a1:
+                    ag_calendar_id = st.text_input(
+                        "ID del Google Calendar *",
+                        placeholder="primary   ó   clinica@gmail.com",
+                        help="'primary' usa el calendario principal de la cuenta. Para calendarios específicos, copia el ID desde Google Calendar → Ajustes del calendario → ID del calendario.",
+                    )
+                    ag_duracion = st.number_input(
+                        "Duración de cada cita (minutos)",
+                        min_value=10, max_value=180, value=30, step=5,
+                    )
+                    ag_email = st.text_input(
+                        "Email del negocio (para notificaciones)",
+                        placeholder="clinica@ejemplo.com",
+                    )
+                with col_a2:
+                    ag_hora_inicio = st.number_input("Primera cita del día (hora)", min_value=6, max_value=12, value=9)
+                    ag_hora_fin = st.number_input("Última cita posible (hora)", min_value=12, max_value=22, value=20)
+                    ag_dias = st.multiselect(
+                        "Días laborables",
+                        options=[1, 2, 3, 4, 5, 6, 7],
+                        default=[1, 2, 3, 4, 5],
+                        format_func=lambda d: ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"][d-1],
+                    )
+
+                ag_submit = st.form_submit_button("⚙️ Generar workflow n8n + tools Vapi", type="primary", use_container_width=True)
+
+            if ag_submit:
+                if not ag_calendar_id:
+                    st.error("Introduce el ID del Google Calendar.")
+                else:
+                    dias_str = ",".join(str(d) for d in sorted(ag_dias)) if ag_dias else "1,2,3,4,5"
+                    from agents.specialists.n8n_export import generar_workflow_voz_agenda
+                    n8n_json = generar_workflow_voz_agenda(
+                        nombre_negocio=nombre_neg,
+                        google_calendar_id=ag_calendar_id,
+                        email_negocio=ag_email or "negocio@ejemplo.com",
+                        duracion_cita_min=int(ag_duracion),
+                        hora_inicio=int(ag_hora_inicio),
+                        hora_fin=int(ag_hora_fin),
+                        dias_laborables=dias_str,
+                    )
+                    st.session_state["voz_n8n_json"] = n8n_json
+                    st.success("✅ Workflow generado")
+
+            if st.session_state.get("voz_n8n_json"):
+                n8n_json = st.session_state["voz_n8n_json"]
+                st.download_button(
+                    "⬇️ Descargar workflow n8n (agenda_voz.json)",
+                    data=n8n_json,
+                    file_name=f"agenda_voz_{slug}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+                st.markdown("##### Pasos para activarlo")
+                webhook_base = webhook.rstrip("/") if webhook else "https://TU_N8N.railway.app"
+                webhook_voz = f"{webhook_base.rsplit('/webhook', 1)[0]}/webhook/voz-agenda" if webhook else "https://TU_N8N.railway.app/webhook/voz-agenda"
+                st.markdown(f"""
+1. En n8n → **File → Import → From JSON** → sube `agenda_voz_{slug}.json`
+2. Ve a **Credentials** y conecta tu cuenta de **Google Calendar**
+3. Activa el workflow (toggle **Active**)
+4. La URL del webhook será: `{webhook_voz}`
+5. Descarga de nuevo el JSON de Vapi (tab "📦 Exportar a Vapi.ai") **con esa URL en el campo webhook** para que los tools queden enlazados
+6. Prueba: llama al número de Vapi y pide cita para un día concreto
+""")
+                with st.expander("Ver JSON del workflow"):
+                    st.code(n8n_json[:1500] + "\n...", language="json")
+
+        with tab_guide:
+            from agents.specialists.vapi_export import generar_guia_vapi
+            sector_guardado = st.session_state.get("voice_agent_sector", "")
+            guia = generar_guia_vapi(nombre_neg, webhook, tiene_n8n=bool(webhook), sector=sector_guardado)
+            st.markdown(guia)
+
+
+# ─── Recordatorios & Fidelización ─────────────────────────────────────────────
+elif page == "🔔 Recordatorios & Fidelización":
+    st.subheader("🔔 Recordatorios, Anti-no-show y Fidelización")
+    st.caption("Genera el pack de mensajes automáticos que reducen ausencias y reactivan clientes. Se automatiza con n8n leyendo el calendario.")
+
+    with st.form("retention_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            rt_nombre = st.text_input("Nombre del negocio *", placeholder="Clínica Dental Smile")
+            rt_sector = st.selectbox(
+                "Sector *",
+                ["Clínica dental", "Clínica estética / medicina estética", "Peluquería / barbería",
+                 "Centro de fisioterapia", "Psicología / terapia", "Restaurante / bar",
+                 "Gimnasio / centro deportivo", "Farmacia", "Despacho profesional", "Otro"],
+            )
+            rt_telefono = st.text_input("Teléfono del negocio", placeholder="93 123 45 67")
+            rt_tono = st.selectbox("Trato con el cliente", ["Tuteo (cercano)", "Usted (formal)"])
+        with col2:
+            rt_servicios = st.text_area(
+                "Servicios principales / ciclo de visita *",
+                placeholder="Limpieza dental (cada 6 meses)\nRevisión anual\nOrtodoncia\nBlanqueamiento",
+                height=110,
+            )
+            rt_incentivo = st.text_input(
+                "Incentivo para reactivar (opcional)",
+                placeholder="Ej: revisión gratuita, 10% en la próxima visita",
+            )
+            rt_enlace_resena = st.text_input(
+                "Enlace para pedir reseña en Google (opcional)",
+                placeholder="https://g.page/r/...",
+            )
+
+        rt_submit = st.form_submit_button("🔔 Generar pack de mensajes", type="primary", use_container_width=True)
+
+    if rt_submit:
+        if not rt_nombre or not rt_servicios:
+            st.error("Rellena al menos: nombre del negocio y servicios.")
+        else:
+            brief = f"""Negocio: {rt_nombre}
+Sector: {rt_sector}
+Teléfono del negocio: {rt_telefono or "[teléfono]"}
+Trato: {rt_tono}
+Servicios y ciclo de visita: {rt_servicios}
+Incentivo de reactivación: {rt_incentivo or "ninguno concreto — usa un motivo natural para volver"}
+Enlace de reseña: {rt_enlace_resena or "{enlace_resena}"}
+
+Crea el pack completo de mensajes de recordatorio, anti-no-show y fidelización para este negocio,
+adaptado a su sector y su ciclo de servicio."""
+
+            with st.spinner("Generando mensajes..."):
+                from agents.specialists.retention_specialist import RetentionSpecialist
+                resultado = RetentionSpecialist().run(brief)
+
+            st.session_state["retention_resultado"] = resultado
+            st.session_state["retention_nombre"] = rt_nombre
+            st.session_state["retention_telefono"] = rt_telefono
+            st.success("✅ Pack generado")
+
+    if st.session_state.get("retention_resultado"):
+        resultado = st.session_state["retention_resultado"]
+        nombre_neg = st.session_state.get("retention_nombre", "negocio")
+        tel_neg = st.session_state.get("retention_telefono", "")
+        slug = nombre_neg.lower().replace(" ", "_")[:30]
+
+        tab_msg, tab_auto, tab_guide = st.tabs([
+            "💬 Pack de mensajes",
+            "⚙️ Automatización n8n",
+            "🚀 Guía de uso",
+        ])
+
+        with tab_msg:
+            st.markdown("#### Mensajes listos para usar")
+            st.caption("Variables como {nombre}, {fecha}, {hora}, {servicio} las rellena el sistema en cada envío.")
+            st.markdown(resultado)
+            st.download_button(
+                "⬇️ Descargar pack de mensajes",
+                data=resultado,
+                file_name=f"mensajes_retencion_{slug}.md",
+                mime="text/markdown",
+            )
+
+        with tab_auto:
+            st.markdown("#### Workflow de recordatorios automáticos")
+            st.caption("Lee el Google Calendar del negocio y envía el recordatorio X horas antes de cada cita.")
+
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                rt_calendar = st.text_input("Google Calendar ID", value="primary", key="rt_cal")
+            with col_b:
+                rt_canal = st.selectbox("Canal de envío", ["whatsapp", "email"], key="rt_canal",
+                                        format_func=lambda c: "WhatsApp (Twilio)" if c == "whatsapp" else "Email (Gmail)")
+            with col_c:
+                rt_horas = st.number_input("Horas antes de la cita", min_value=1, max_value=72, value=24, key="rt_horas")
+
+            if st.button("⚙️ Generar workflow n8n", key="rt_gen_n8n"):
+                from agents.specialists.n8n_export import generar_workflow_recordatorios
+                n8n_json = generar_workflow_recordatorios(
+                    nombre_negocio=nombre_neg,
+                    google_calendar_id=rt_calendar,
+                    canal=rt_canal,
+                    horas_antes=int(rt_horas),
+                    telefono_negocio=tel_neg,
+                )
+                st.session_state["retention_n8n"] = n8n_json
+                st.success("✅ Workflow generado")
+
+            if st.session_state.get("retention_n8n"):
+                st.download_button(
+                    "⬇️ Descargar workflow n8n (recordatorios.json)",
+                    data=st.session_state["retention_n8n"],
+                    file_name=f"recordatorios_{slug}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+                with st.expander("Ver JSON del workflow"):
+                    st.code(st.session_state["retention_n8n"][:1500] + "\n...", language="json")
+
+        with tab_guide:
+            canal_actual = st.session_state.get("rt_canal", "whatsapp")
+            credencial = "Twilio (WhatsApp Business)" if canal_actual == "whatsapp" else "Gmail"
+            st.markdown(f"""
+## Cómo poner en marcha la automatización
+
+### 1. Importa el workflow en n8n
+1. n8n → **File → Import → From JSON** → sube `recordatorios_{slug}.json`
+2. Conecta la credencial de **Google Calendar** (para leer las citas)
+3. Conecta la credencial de **{credencial}** (para enviar los mensajes)
+
+### 2. Cómo funciona
+- El workflow se ejecuta **cada hora** automáticamente
+- Lee las citas que empiezan dentro de **{st.session_state.get('rt_horas', 24)} horas**
+- Extrae nombre, teléfono y servicio del evento del calendario
+- Envía el recordatorio personalizado por {('WhatsApp' if canal_actual == 'whatsapp' else 'email')}
+
+> **Importante:** para que funcione, las citas del calendario deben tener el teléfono
+> en la descripción (formato `Teléfono: 600123456`). El **Agente de Voz** ya las crea
+> así automáticamente — los dos sistemas encajan.
+
+### 3. Las otras secuencias (no-show, win-back, fidelización)
+Los mensajes del pack para **recuperación de no-show**, **reactivación de clientes dormidos**
+y **post-visita + reseña** se disparan con eventos distintos (una ausencia, X meses sin volver,
+fin de la cita). Se montan como workflows adicionales en n8n usando los mismos textos.
+Empieza por el recordatorio automático (el de mayor impacto inmediato) y amplía después.
+
+### Argumento de venta para el cliente
+> *"Cada no-show es dinero perdido. Este sistema recuerda automáticamente cada cita por
+> WhatsApp y recupera a quien no viene. Las clínicas que lo usan reducen las ausencias
+> entre un 30% y un 50% sin que nadie del equipo tenga que escribir un solo mensaje."*
+
+**Precio sugerido:** 297-497€ setup + 79-149€/mes gestión.
+""")
+
+
+# ─── Gestor de Reseñas & Reputación ──────────────────────────────────────────
+elif page == "⭐ Gestor de Reseñas":
+    from agents.specialists.reviews_specialist import ReviewsSpecialist
+    from agents.specialists.n8n_export import generar_workflow_resenas
+
+    st.subheader("⭐ Gestor de Reseñas & Reputación")
+    st.caption("Analiza tus reseñas de Google, genera respuestas con IA y automatiza la monitorización.")
+
+    if "reviews_resultado" not in st.session_state:
+        st.session_state.reviews_resultado = ""
+    if "reviews_nombre" not in st.session_state:
+        st.session_state.reviews_nombre = ""
+    if "reviews_n8n_json" not in st.session_state:
+        st.session_state.reviews_n8n_json = ""
+
+    # ── Formulario principal ───────────────────────────────────────────────────
+    with st.form("form_reviews"):
+        col1, col2 = st.columns(2)
+        with col1:
+            rev_nombre = st.text_input("Nombre del negocio *", placeholder="Clínica Dental Sonrisa")
+            rev_sector = st.selectbox("Sector", [
+                "Clínica dental", "Clínica estética / belleza", "Restaurante",
+                "Gimnasio / wellness", "Farmacia", "Peluquería", "Fisioterapia / salud",
+                "Otro",
+            ])
+            rev_rating = st.slider("Rating actual en Google (★)", 1.0, 5.0, 4.2, 0.1)
+        with col2:
+            rev_place_id = st.text_input(
+                "Google Place ID (opcional)",
+                placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4",
+                help="Búscalo en Google Maps → tu negocio → Compartir → enlace. O déjalo vacío para añadirlo después.",
+            )
+            rev_email = st.text_input("Email del negocio (para alertas)", placeholder="info@clinica.com")
+            rev_horas = st.selectbox("Frecuencia de monitorización", [4, 6, 12, 24], index=1,
+                                     format_func=lambda h: f"Cada {h} horas")
+
+        st.markdown("**Pega aquí las reseñas reales del negocio** (copia desde Google Maps):")
+        rev_resenas = st.text_area(
+            "Reseñas",
+            height=220,
+            placeholder=(
+                "★★★★★ — María G. (hace 2 semanas)\n"
+                "Increíble atención, me trataron con mucha amabilidad y el resultado fue perfecto.\n\n"
+                "★★☆☆☆ — Juan L. (hace 1 mes)\n"
+                "Esperé 40 minutos más de lo previsto. El trato fue correcto pero la espera es mejorable.\n\n"
+                "★★★★★ — Ana R. (hace 3 semanas)\n"
+                "Llevo años viniendo y siempre quedo encantada. Los mejores de la zona sin duda."
+            ),
+            label_visibility="collapsed",
+        )
+
+        rev_tono = st.radio(
+            "Tono de las respuestas",
+            ["Cálido y cercano", "Profesional y formal", "Dinámico y moderno"],
+            horizontal=True,
+        )
+
+        submitted = st.form_submit_button("Generar respuestas y análisis", type="primary", use_container_width=True)
+
+    if submitted:
+        if not rev_nombre or not rev_resenas:
+            st.error("Completa el nombre del negocio y pega al menos una reseña.")
+        else:
+            with st.spinner("Analizando reseñas y generando respuestas..."):
+                specialist = ReviewsSpecialist()
+                brief = f"""Negocio: {rev_nombre}
+Sector: {rev_sector}
+Rating actual en Google: {rev_rating}★
+Tono deseado para las respuestas: {rev_tono}
+
+RESEÑAS REALES (copia literal de Google):
+{rev_resenas}
+
+Genera las respuestas personalizadas para CADA reseña, el análisis de reputación completo y el plan de acción."""
+                resultado = specialist.run(brief)
+                st.session_state.reviews_resultado = resultado
+                st.session_state.reviews_nombre = rev_nombre
+
+                # Generar workflow n8n
+                st.session_state.reviews_n8n_json = generar_workflow_resenas(
+                    nombre_negocio=rev_nombre,
+                    place_id=rev_place_id,
+                    google_api_key="TU_GOOGLE_API_KEY",
+                    email_negocio=rev_email or "email@negocio.com",
+                    horas_check=int(rev_horas),
+                    min_stars_alerta=3,
+                )
+
+    if st.session_state.reviews_resultado:
+        tabs = st.tabs(["📝 Respuestas & Análisis", "⚙️ Automatización n8n", "📖 Guía de uso"])
+
+        # ── Tab 1: Respuestas y análisis ───────────────────────────────────────
+        with tabs[0]:
+            st.markdown(st.session_state.reviews_resultado)
+            st.download_button(
+                "📥 Descargar análisis completo (.txt)",
+                data=st.session_state.reviews_resultado,
+                file_name=f"resenas_{st.session_state.reviews_nombre.replace(' ', '_')}.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
+
+        # ── Tab 2: Workflow n8n ────────────────────────────────────────────────
+        with tabs[1]:
+            st.markdown("### ⚙️ Workflow n8n — Monitorización automática de reseñas")
+            st.info(
+                "Este workflow revisa tus reseñas de Google cada pocas horas, envía alertas "
+                "por email cuando llega una reseña negativa y guarda la respuesta sugerida "
+                "por IA en un Google Sheet listo para que la revises y publiques.",
+                icon="ℹ️",
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                n8n_place = st.text_input("Google Place ID", placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4",
+                                          key="n8n_place_id")
+                n8n_sheets = st.text_input("Google Sheets ID", placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+                                           key="n8n_sheets_id")
+            with col2:
+                n8n_stars = st.selectbox("Alertar si rating ≤", [2, 3, 4], index=1,
+                                         format_func=lambda s: f"{s}★ o menos",
+                                         key="n8n_stars")
+                n8n_horas2 = st.selectbox("Frecuencia", [4, 6, 12, 24], index=1,
+                                           format_func=lambda h: f"Cada {h} horas",
+                                           key="n8n_horas2")
+
+            if st.button("Regenerar workflow con estos datos", key="btn_regen_n8n_reviews"):
+                st.session_state.reviews_n8n_json = generar_workflow_resenas(
+                    nombre_negocio=st.session_state.reviews_nombre,
+                    place_id=n8n_place,
+                    google_api_key="TU_GOOGLE_API_KEY",
+                    email_negocio=rev_email or "email@negocio.com",
+                    horas_check=int(n8n_horas2),
+                    min_stars_alerta=int(n8n_stars),
+                )
+                st.success("Workflow actualizado.")
+
+            st.download_button(
+                "📥 Descargar workflow n8n (.json)",
+                data=st.session_state.reviews_n8n_json,
+                file_name=f"n8n_resenas_{st.session_state.reviews_nombre.replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+            with st.expander("Ver JSON del workflow"):
+                st.code(st.session_state.reviews_n8n_json, language="json")
+
+            st.markdown("""
+**Pasos para activarlo en n8n:**
+1. Abre n8n → **Workflows → Import from file** → sube el JSON descargado
+2. En el nodo **"Obtener reseñas Google"**: añade tu `GOOGLE_API_KEY` y el `Place ID` de tu negocio
+3. En el nodo **"Alerta email negativa"**: conecta tu cuenta de Gmail
+4. En el nodo **"Guardar en Google Sheets"**: conecta Google Sheets y selecciona tu hoja
+5. En el nodo **"Generar respuesta con IA"**: añade tu `ANTHROPIC_API_KEY` en las variables de entorno de n8n
+6. Activa el workflow con el toggle → empieza a monitorizar automáticamente
+
+**¿Cómo encontrar el Place ID?**
+Busca tu negocio en Google Maps → haz clic derecho en el marcador → "¿Qué hay aquí?" → el ID aparece en la URL o en la tarjeta inferior.
+""")
+
+        # ── Tab 3: Guía ───────────────────────────────────────────────────────
+        with tabs[2]:
+            st.markdown(f"""
+## ⭐ Gestor de Reseñas & Reputación — Guía de venta
+
+### ¿Qué hace este servicio?
+Monitoriza automáticamente las reseñas de Google del negocio, alerta cuando llega una negativa
+y genera respuestas profesionales con IA que el equipo solo tiene que revisar y publicar.
+
+### Por qué es crítico para el negocio local
+- **El 87% de los consumidores** lee reseñas antes de elegir un negocio local
+- Una reseña negativa sin respuesta → señal de que al negocio no le importa
+- Una respuesta bien redactada a una negativa **puede convertirla en positiva**
+- Negocios con rating ≥ 4.5★ y respuestas activas reciben **un 35% más de clics** en Google Maps
+- Cada 10 nuevas reseñas positivas sube aproximadamente **0.1 puntos el rating**
+
+### Argumentario de venta para {st.session_state.reviews_nombre}
+*"¿Sabes cuántas personas leen tus reseñas de Google antes de llamarte?
+Con este sistema, cuando alguien te deja una mala reseña, recibes una alerta en el momento
+y tienes lista una respuesta profesional en segundos. Y para las buenas, el sistema también
+genera un agradecimiento personalizado que muestra que te preocupas por tus clientes.
+El resultado: mejor posicionamiento en Google Maps y más confianza antes de que nadie llame."*
+
+### Precio sugerido
+- **Setup:** 297-497€ (configuración + primeras respuestas + workflow n8n)
+- **Gestión mensual:** 97-197€/mes (monitorización + revisión de respuestas + informe mensual)
+""")
+
+
+# ─── Content Engine ───────────────────────────────────────────────────────────
+elif page == "📅 Content Engine":
+    import io, csv
+    from agents.specialists.content_engine_specialist import ContentEngineSpecialist
+
+    st.subheader("📅 Content Engine — Calendario Editorial 30 días")
+    st.caption("Genera el calendario completo con copy listo para publicar en Instagram, Facebook, TikTok y Google Business.")
+
+    if "ce_resultado" not in st.session_state:
+        st.session_state.ce_resultado = ""
+    if "ce_nombre" not in st.session_state:
+        st.session_state.ce_nombre = ""
+
+    with st.form("form_content_engine"):
+        col1, col2 = st.columns(2)
+        with col1:
+            ce_nombre = st.text_input("Nombre del negocio *", placeholder="Clínica Dental Sonrisa")
+            ce_sector = st.selectbox("Sector", [
+                "Clínica dental", "Clínica estética / medicina estética",
+                "Restaurante / bar", "Gimnasio / centro de wellness",
+                "Peluquería / salón de belleza", "Farmacia", "Fisioterapia / osteopatía",
+                "Psicología / coaching", "Veterinaria", "Centro deportivo",
+                "Tienda local / comercio", "Otro",
+            ])
+            ce_ciudad = st.text_input("Ciudad o zona", placeholder="Barcelona, Gràcia")
+            ce_objetivo = st.selectbox("Objetivo principal del mes", [
+                "Conseguir más citas / reservas",
+                "Aumentar seguidores y visibilidad",
+                "Lanzar un servicio nuevo",
+                "Fidelizar clientes actuales",
+                "Posicionarse como referente local",
+                "Campaña de temporada / promoción",
+            ])
+
+        with col2:
+            ce_plataformas = st.multiselect(
+                "Plataformas *",
+                ["Instagram", "Facebook", "TikTok", "Google Business Profile"],
+                default=["Instagram", "Google Business Profile"],
+            )
+            ce_tono = st.selectbox("Tono de comunicación", [
+                "Cálido y cercano (tuteo, emojis moderados)",
+                "Profesional y confiable (tratamiento formal)",
+                "Dinámico y moderno (lenguaje joven, mucho humor)",
+                "Educativo y experto (datos, consejos, formación)",
+            ])
+            ce_frecuencia = st.selectbox("Frecuencia de publicación", [
+                "3 días/semana (ritmo sostenible)",
+                "5 días/semana (ritmo activo)",
+                "7 días/semana (ritmo intensivo)",
+            ])
+            ce_mes = st.selectbox("Mes del calendario", [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+            ], index=5)
+
+        ce_servicios = st.text_area(
+            "Servicios o productos principales (uno por línea)",
+            height=80,
+            placeholder="Limpieza dental — 60€\nBlanqueamiento LED — 290€\nOrtodoncia invisible — desde 2.500€",
+        )
+        ce_extra = st.text_area(
+            "Eventos, promociones o novedades de este mes (opcional)",
+            height=60,
+            placeholder="Descuento 15% en blanqueamiento todo el mes · Apertura nuevo box de pilates",
+        )
+
+        submitted_ce = st.form_submit_button("🚀 Generar calendario editorial", type="primary", use_container_width=True)
+
+    if submitted_ce:
+        if not ce_nombre or not ce_plataformas:
+            st.error("Completa el nombre del negocio y selecciona al menos una plataforma.")
+        else:
+            with st.spinner("Creando tu calendario editorial de 30 días... (puede tardar 30-60 segundos)"):
+                specialist = ContentEngineSpecialist()
+                brief = f"""Negocio: {ce_nombre}
+Sector: {ce_sector}
+Ciudad/Zona: {ce_ciudad or 'España'}
+Mes: {ce_mes}
+Objetivo del mes: {ce_objetivo}
+Plataformas: {', '.join(ce_plataformas)}
+Tono: {ce_tono}
+Frecuencia: {ce_frecuencia}
+Servicios principales:
+{ce_servicios or '(no especificados)'}
+Eventos o novedades del mes:
+{ce_extra or 'Ninguno en particular'}
+
+Genera el calendario editorial completo de 30 días con copy íntegro de cada post."""
+                resultado = specialist.run(brief)
+                st.session_state.ce_resultado = resultado
+                st.session_state.ce_nombre = ce_nombre
+
+    if st.session_state.ce_resultado:
+        tabs = st.tabs(["📅 Calendario completo", "📥 Exportar", "📖 Guía de uso"])
+
+        with tabs[0]:
+            st.markdown(st.session_state.ce_resultado)
+
+        with tabs[1]:
+            st.markdown("### 📥 Descarga tu calendario")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button(
+                    "📄 Descargar en Markdown (.md)",
+                    data=st.session_state.ce_resultado,
+                    file_name=f"calendario_{st.session_state.ce_nombre.replace(' ', '_')}_{ce_mes}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+            with col2:
+                # Generar CSV simple
+                lines = st.session_state.ce_resultado.split("\n")
+                csv_rows = [["Día", "Plataforma", "Categoría", "Copy", "Hashtags", "Formato", "Hora"]]
+                current = {}
+                for line in lines:
+                    if line.startswith("**Día "):
+                        if current.get("dia"):
+                            csv_rows.append([
+                                current.get("dia", ""),
+                                current.get("plataforma", ""),
+                                current.get("categoria", ""),
+                                current.get("copy", ""),
+                                current.get("hashtags", ""),
+                                current.get("formato", ""),
+                                current.get("hora", ""),
+                            ])
+                        parts = line.strip("*").split(" — ")
+                        current = {
+                            "dia": parts[0].replace("Día ", "").strip() if len(parts) > 0 else "",
+                            "plataforma": parts[1].strip() if len(parts) > 1 else "",
+                            "categoria": parts[2].strip() if len(parts) > 2 else "",
+                            "copy": "", "hashtags": "", "formato": "", "hora": "",
+                        }
+                    elif "#️⃣" in line:
+                        current["hashtags"] = line.replace("#️⃣ *Hashtags:*", "").strip()
+                    elif "🎬" in line:
+                        current["formato"] = line.replace("🎬 *Formato:*", "").strip()
+                    elif "⏰" in line:
+                        current["hora"] = line.replace("⏰ *Hora recomendada:*", "").strip()
+
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerows(csv_rows)
+                st.download_button(
+                    "📊 Descargar en CSV (para Notion/Sheets)",
+                    data=output.getvalue().encode("utf-8"),
+                    file_name=f"calendario_{st.session_state.ce_nombre.replace(' ', '_')}_{ce_mes}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            st.info(
+                "**Tip:** Importa el CSV en Google Sheets o Notion para gestionar el calendario "
+                "con tu equipo y añadir el estado de cada post (Borrador / Programado / Publicado).",
+                icon="💡",
+            )
+
+        with tabs[2]:
+            st.markdown(f"""
+## 📅 Content Engine — Guía de venta
+
+### Qué entrega este servicio
+Un calendario editorial de 30 días con el copy íntegro de cada post, listo para publicar.
+El cliente no tiene que escribir nada — solo revisar, ajustar detalles menores y programar.
+
+### Por qué un negocio local lo necesita
+- El **dueño medio de una pyme dedica 4-6 horas al mes** solo a pensar qué publicar
+- Los negocios que publican de forma **consistente** (3-5x/semana) generan un **40-80% más de visitas** a su ficha de Google
+- El **64% de los consumidores** sigue a negocios locales en redes antes de visitarlos por primera vez
+- Sin estrategia editorial: contenido genérico, rachas de inactividad y seguidores que no convierten
+
+### Argumentario para {st.session_state.ce_nombre}
+*"¿Cuántas horas lleva tu equipo pensando qué publicar cada semana?
+Con Content Engine, recibes el mes entero de contenido de una vez — posts, hashtags, horarios,
+ideas de Reels — todo personalizado a tu negocio y listo para copiar y programar.
+Tú solo decides si lo publicas o ajustas algo. Nada más."*
+
+### Flujo de trabajo recomendado para el cliente
+1. **Día 1 del mes** → genera el calendario en 60 segundos con este módulo
+2. **Día 2-3** → el cliente revisa, aprueba y ajusta detalles menores
+3. **Día 3-4** → se programa todo en Meta Business Suite, Buffer o Later
+4. **Fin de mes** → informe de rendimiento + generación del siguiente mes
+
+### Precio sugerido
+- **Por calendario mensual:** 197-297€/mes
+- **Retainer trimestral (descuento):** 497-697€/trimestre
+- **Setup + primer mes + formación:** 397€ precio de entrada
+""")
+
+
+# ─── Generador de PDFs ────────────────────────────────────────────────────────
+elif page == "📄 Generador de PDFs":
+    import importlib
+
+    st.subheader("📄 Generador de PDFs comerciales")
+    st.caption("Genera y descarga los documentos de MerakIA al momento, siempre con la versión actualizada.")
+
+    docs = {
+        "📦 Catálogo de Servicios 2026": {
+            "modulo": "generar_catalogo",
+            "archivo": "MerakIA_Catalogo_Servicios_2026.pdf",
+            "desc": "Los 12 servicios de la agencia con descripción, dolor que resuelven, ROI, "
+                    "entregables y tabla comparativa. El documento que enseñas a un cliente para "
+                    "que vea todo lo que puedes hacer por su negocio.",
+        },
+        "🎯 Estrategia de Captación y Marketing 2026": {
+            "modulo": "generar_estrategia_captacion",
+            "archivo": "MerakIA_Estrategia_Captacion_2026.pdf",
+            "desc": "Plan completo para conseguir tus primeros clientes: posicionamiento, cliente "
+                    "ideal, plan de 90 días, canales, proceso de venta, scripts, precios y KPIs. "
+                    "Tu manual interno de crecimiento — con tu foto en portada.",
+        },
+    }
+
+    for titulo, info in docs.items():
+        with st.container(border=True):
+            st.markdown(f"### {titulo}")
+            st.write(info["desc"])
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if st.button("🔄 Generar ahora", key=f"gen_{info['modulo']}", use_container_width=True):
+                    with st.spinner("Generando PDF..."):
+                        try:
+                            mod = importlib.import_module(info["modulo"])
+                            importlib.reload(mod)  # asegura la versión más reciente
+                            pdf_bytes = mod.generar_pdf_bytes()
+                            st.session_state[f"pdf_{info['modulo']}"] = pdf_bytes
+                            st.success(f"✅ Generado ({len(pdf_bytes)//1024} KB)")
+                        except Exception as e:
+                            st.error(f"Error al generar: {e}")
+            with col2:
+                if f"pdf_{info['modulo']}" in st.session_state:
+                    st.download_button(
+                        "⬇️ Descargar PDF",
+                        data=st.session_state[f"pdf_{info['modulo']}"],
+                        file_name=info["archivo"],
+                        mime="application/pdf",
+                        key=f"dl_{info['modulo']}",
+                        use_container_width=True,
+                    )
+
+    st.divider()
+    st.info(
+        "💡 Estos PDFs se generan desde el código, así que siempre reflejan los servicios "
+        "y precios actuales. Si añadimos un servicio nuevo a la plataforma, el catálogo se "
+        "actualiza solo al regenerarlo.",
+        icon="ℹ️",
+    )
+
+
 # ─── Autonomous Agent ─────────────────────────────────────────────────────────
 elif page == "⚡ Agente Autónomo":
     st.subheader("⚡ Agente Autónomo")
@@ -750,47 +1798,68 @@ elif page == "🎬 VideoStudio":
             language = st.selectbox("Idioma", ["es", "en"])
             show_narration = st.checkbox("Ver narración completa")
 
+        # ── Documentos de referencia (PDF) ───────────────────────────────────
+        st.markdown("##### 📄 Documentos de referencia")
+        st.caption("Sube estudios, papers o artículos en PDF. La IA los usará como fuente para dar datos rigurosos y contrastados en el guión.")
+
+        pdf_uploads = st.file_uploader(
+            "Arrastra aquí los PDFs (puedes subir varios)",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="script_pdfs",
+            help="El texto extraído se pasará a la IA junto con el tema. Recomendado para biohacking, finanzas o cualquier nicho donde la precisión importa.",
+        )
+
+        # Extrae y combina texto de todos los PDFs subidos
+        if pdf_uploads:
+            from pypdf import PdfReader
+            import io as _io
+            pdf_texts = []
+            for pf in pdf_uploads:
+                try:
+                    reader = PdfReader(_io.BytesIO(pf.read()))
+                    text = "\n".join(p.extract_text() or "" for p in reader.pages).strip()
+                    if text:
+                        pdf_texts.append(f"[{pf.name}]\n{text}")
+                except Exception as e:
+                    st.warning(f"No se pudo leer {pf.name}: {e}")
+            combined_pdf_text = "\n\n---\n\n".join(pdf_texts)[:8000]
+            st.session_state["brief_pdf_text"] = combined_pdf_text
+
+            total_chars = len(combined_pdf_text)
+            st.success(f"✅ {len(pdf_texts)} PDF(s) cargado(s) — {total_chars:,} caracteres de referencia")
+            with st.expander("👁️ Vista previa del contenido extraído"):
+                st.text(combined_pdf_text[:1500] + ("…" if total_chars > 1500 else ""))
+        elif "brief_pdf_text" in st.session_state and st.session_state["brief_pdf_text"]:
+            st.info(f"PDF cargado en sesión: {len(st.session_state['brief_pdf_text']):,} chars. Sube nuevos PDFs para reemplazarlo.")
+
         # ── Briefing adicional ────────────────────────────────────────────────
-        with st.expander("📋 Briefing adicional — puntos clave, referencias y pistas visuales", expanded=False):
-            st.caption("Todo lo que pongas aquí lo recibirá la IA como directrices obligatorias al escribir el guión.")
+        with st.expander("📋 Directrices adicionales — puntos clave, tono y pistas visuales", expanded=False):
+            st.caption("Opcional. Complementa los PDFs con instrucciones específicas para la IA.")
 
             brief_key_points_raw = st.text_area(
                 "Puntos clave a incluir (uno por línea)",
                 placeholder="15-20 min de sol por la mañana es suficiente\nEl sol regula el cortisol y la melatonina\nEstudio Harvard 2023: 7% menos riesgo de depresión con exposición diaria",
-                height=110,
+                height=100,
                 key="script_key_points",
             )
 
-            col_ref1, col_ref2 = st.columns([2, 1])
-            with col_ref1:
-                brief_reference_raw = st.text_area(
-                    "Material de referencia (pega texto de papers, artículos, estudios)",
-                    placeholder="Copia aquí el texto de cualquier paper o artículo que quieras que la IA use como fuente...",
-                    height=110,
-                    key="script_reference",
-                )
-            with col_ref2:
-                pdf_upload = st.file_uploader("O sube un PDF", type=["pdf"], key="script_pdf")
-                if pdf_upload:
-                    try:
-                        from pypdf import PdfReader
-                        import io as _io
-                        reader = PdfReader(_io.BytesIO(pdf_upload.read()))
-                        pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)[:5000]
-                        st.session_state["brief_pdf_text"] = pdf_text
-                        st.success(f"✅ PDF cargado ({len(pdf_text):,} chars)")
-                    except Exception as e:
-                        st.error(f"Error leyendo PDF: {e}")
+            brief_reference_raw = st.text_area(
+                "Texto adicional de referencia (complementa los PDFs)",
+                placeholder="Pega aquí cualquier texto, cita o dato que quieras añadir y que no esté en los PDFs...",
+                height=80,
+                key="script_reference",
+            )
 
             brief_cues_raw = st.text_area(
                 "Pistas visuales (formato: tema → descripción clip Pexels)",
-                placeholder="Warren Buffett → stock market charts warren buffett\nvitamina D → morning sunlight outdoor person\ndeporte → weight training gym person",
-                height=80,
+                placeholder="Warren Buffett → stock market charts warren buffett\nvitamina D → morning sunlight outdoor person",
+                height=70,
                 key="script_visual_cues",
             )
 
             brief_avoid_raw = st.text_input(
-                "Evitar (temas que NO debe tocar el video, separados por coma)",
+                "Evitar (temas separados por coma)",
                 placeholder="miedo al cáncer, quemaduras solares, bronceado artificial",
                 key="script_avoid",
             )
@@ -800,9 +1869,12 @@ elif page == "🎬 VideoStudio":
             kp = [l.strip() for l in brief_key_points_raw.splitlines() if l.strip()]
             if kp:
                 b["key_points"] = kp
-            ref = st.session_state.get("brief_pdf_text", "") or brief_reference_raw.strip()
-            if ref:
-                b["reference_text"] = ref[:5000]
+            # Combina texto de PDFs + texto manual
+            pdf_ref = st.session_state.get("brief_pdf_text", "")
+            manual_ref = brief_reference_raw.strip()
+            combined_ref = "\n\n".join(filter(None, [pdf_ref, manual_ref]))
+            if combined_ref:
+                b["reference_text"] = combined_ref[:8000]
             if brief_cues_raw.strip():
                 cues = {}
                 for line in brief_cues_raw.splitlines():
@@ -1070,8 +2142,40 @@ elif page == "🚀 Pipeline Completo":
         output_slug = st.text_input("Nombre carpeta", placeholder="mi_video", key="pl_slug")
 
     # ── Brief creativo ────────────────────────────────────────────────────────
-    with st.expander("📋 Briefing adicional — puntos clave, referencias y pistas visuales", expanded=False):
-        st.caption("Directrices que la IA debe seguir al escribir el guión. Todo es opcional.")
+    # ── Documentos de referencia (PDF) ───────────────────────────────────────
+    st.markdown("##### 📄 Documentos de referencia")
+    st.caption("Sube estudios, papers o artículos en PDF. La IA los usará como fuente para dar datos rigurosos y contrastados.")
+
+    pl_pdf_uploads = st.file_uploader(
+        "Arrastra aquí los PDFs (puedes subir varios)",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key="pl_pdfs",
+        help="El texto extraído se combina y se pasa a la IA al generar el guión.",
+    )
+
+    if pl_pdf_uploads:
+        from pypdf import PdfReader
+        import io as _io
+        pl_pdf_parts = []
+        for pf in pl_pdf_uploads:
+            try:
+                reader = PdfReader(_io.BytesIO(pf.read()))
+                text = "\n".join(p.extract_text() or "" for p in reader.pages).strip()
+                if text:
+                    pl_pdf_parts.append(f"[{pf.name}]\n{text}")
+            except Exception as e:
+                st.warning(f"No se pudo leer {pf.name}: {e}")
+        pl_combined_pdf = "\n\n---\n\n".join(pl_pdf_parts)[:8000]
+        st.session_state["pl_brief_pdf_text"] = pl_combined_pdf
+        st.success(f"✅ {len(pl_pdf_parts)} PDF(s) — {len(pl_combined_pdf):,} caracteres de referencia")
+        with st.expander("👁️ Vista previa del contenido extraído"):
+            st.text(pl_combined_pdf[:1500] + ("…" if len(pl_combined_pdf) > 1500 else ""))
+    elif st.session_state.get("pl_brief_pdf_text"):
+        st.info(f"PDF en sesión: {len(st.session_state['pl_brief_pdf_text']):,} chars")
+
+    with st.expander("📋 Directrices adicionales — puntos clave, tono y pistas visuales", expanded=False):
+        st.caption("Opcional. Complementa los PDFs con instrucciones específicas para la IA.")
 
         pl_key_points_raw = st.text_area(
             "Puntos clave (uno por línea)",
@@ -1079,29 +2183,15 @@ elif page == "🚀 Pipeline Completo":
             height=100,
             key="pl_key_points",
         )
-        col_pr1, col_pr2 = st.columns([2, 1])
-        with col_pr1:
-            pl_reference_raw = st.text_area(
-                "Material de referencia (texto de papers, artículos)",
-                height=90,
-                key="pl_reference",
-            )
-        with col_pr2:
-            pl_pdf_upload = st.file_uploader("O sube un PDF", type=["pdf"], key="pl_pdf")
-            if pl_pdf_upload:
-                try:
-                    from pypdf import PdfReader
-                    import io as _io
-                    reader = PdfReader(_io.BytesIO(pl_pdf_upload.read()))
-                    pl_pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)[:5000]
-                    st.session_state["pl_brief_pdf_text"] = pl_pdf_text
-                    st.success(f"✅ {len(pl_pdf_text):,} chars")
-                except Exception as e:
-                    st.error(str(e))
+        pl_reference_raw = st.text_area(
+            "Texto adicional (complementa los PDFs)",
+            height=80,
+            key="pl_reference",
+        )
         pl_cues_raw = st.text_area(
             "Pistas visuales (tema → descripción clip Pexels)",
             placeholder="Warren Buffett → stock market charts warren buffett\nvitamina D → morning sunlight outdoor person",
-            height=80,
+            height=70,
             key="pl_visual_cues",
         )
         pl_avoid_raw = st.text_input(
@@ -1142,9 +2232,11 @@ elif page == "🚀 Pipeline Completo":
         _pl_kp = [l.strip() for l in pl_key_points_raw.splitlines() if l.strip()]
         if _pl_kp:
             _pl_brief["key_points"] = _pl_kp
-        _pl_ref = st.session_state.get("pl_brief_pdf_text", "") or pl_reference_raw.strip()
+        _pl_pdf_ref = st.session_state.get("pl_brief_pdf_text", "")
+        _pl_manual_ref = pl_reference_raw.strip()
+        _pl_ref = "\n\n".join(filter(None, [_pl_pdf_ref, _pl_manual_ref]))
         if _pl_ref:
-            _pl_brief["reference_text"] = _pl_ref[:5000]
+            _pl_brief["reference_text"] = _pl_ref[:8000]
         _pl_cues = {}
         for _line in pl_cues_raw.splitlines():
             if "→" in _line:

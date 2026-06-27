@@ -78,6 +78,7 @@ class MediaAgent:
         output_dir: str,
         orientation: str = "portrait",   # "portrait" (9:16 TikTok) | "landscape" (16:9 YT)
         clips_per_section: int = 4,      # cuántos clips distintos buscar por sección
+        visual_cues: dict = None,        # {"trigger keyword": "pexels search query"}
     ) -> MediaOutput:
         """Descarga clips de Pexels para cada sección del video.
 
@@ -87,6 +88,9 @@ class MediaAgent:
             output_dir:       carpeta raíz donde guardar los clips
             orientation:      "portrait" (9:16) o "landscape" (16:9)
             clips_per_section: clips distintos a descargar por sección
+            visual_cues:      dict de pistas visuales del brief, ej:
+                              {"Warren Buffett": "warren buffett stock market",
+                               "vitamina D": "sunlight outdoor morning"}
         """
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
@@ -116,7 +120,16 @@ class MediaAgent:
         # Secciones principales
         for section in script_data["sections"]:
             sid = section["section_id"]
-            keywords = section.get("visual_keywords", [])
+            keywords = list(section.get("visual_keywords", []))
+
+            # Aplicar visual_cues del brief: si el trigger aparece en el título
+            # o keywords de la sección, anteponer la búsqueda específica
+            if visual_cues:
+                section_text = (section.get("title", "") + " " + " ".join(keywords)).lower()
+                for trigger, query in visual_cues.items():
+                    if trigger.lower() in section_text:
+                        keywords.insert(0, query)
+
             target = duration_map.get(sid, section.get("duration_seconds", 120))
             sec_dir = out / f"section_{sid}"
 
@@ -163,13 +176,14 @@ class MediaAgent:
         script_json: str,
         voice_json: str,
         output_dir: str,
+        visual_cues: dict = None,
         **kwargs,
     ) -> MediaOutput:
         with open(script_json, encoding="utf-8") as f:
             script_data = json.load(f)
         with open(voice_json, encoding="utf-8") as f:
             voice_data = json.load(f)
-        return self.run(script_data, voice_data, output_dir, **kwargs)
+        return self.run(script_data, voice_data, output_dir, visual_cues=visual_cues, **kwargs)
 
     # ── Lógica de búsqueda y descarga ────────────────────────────────────────
 

@@ -527,6 +527,134 @@ def generar_ficha_tecnica(plato: dict) -> dict:
 
 
 
+def escandallo_avanzado(nombre_plato: str, ingredientes_txt: str, precio_venta: float) -> dict:
+    """Escandallo de alta cocina con rendimiento/merma por producto.
+
+    A diferencia del escandallo simple, aquí cada ingrediente parte de un precio de
+    compra en bruto y un % de rendimiento (lo aprovechable tras limpiar, desespinar,
+    deshuesar...). El coste real se calcula sobre el producto NETO, que es lo que de
+    verdad sangra el margen en cocina de producto caro.
+    """
+
+    prompt = f"""Eres un jefe de cocina de un restaurante gastronómico (nivel estrella Michelin) y experto en control de costes de producto de alta gama.
+
+Analiza el escandallo REAL de este plato teniendo en cuenta el RENDIMIENTO de cada producto (la merma de limpieza, desespinado, deshuesado, reducción, etc.). El coste real se calcula sobre el peso NETO aprovechable, no sobre el peso de compra.
+
+- Plato: {nombre_plato}
+- Precio de venta del plato / del pase en carta: {precio_venta}€
+
+Ingredientes proporcionados por el cocinero (producto, cantidad neta necesaria en el plato, precio de compra y rendimiento aproximado si lo indica):
+{ingredientes_txt}
+
+Para cada ingrediente:
+- Si te da un rendimiento (%), úsalo. Si no, estima un rendimiento realista según el producto (ej: pescado entero ~45-55%, solomillo limpio ~85%, verdura de hoja ~70%, marisco con cáscara ~35-40%).
+- Calcula la cantidad BRUTA a comprar = cantidad neta / rendimiento.
+- Calcula el coste real = cantidad bruta × precio de compra.
+
+Después evalúa el food cost del plato (coste real / precio de venta) y da recomendaciones profesionales de optimización SIN bajar la calidad percibida (aprovechamiento de mermas nobles para fondos/guarniciones, ajuste de gramaje, producto de temporada, etc.).
+
+Responde ÚNICAMENTE con este JSON (sin texto adicional, sin markdown):
+{{
+  "desglose": [
+    {{
+      "ingrediente": "<nombre>",
+      "cantidad_neta": "<cantidad usada en el plato>",
+      "rendimiento_pct": <int>,
+      "cantidad_bruta": "<cantidad a comprar>",
+      "precio_compra": "<€/kg o €/ud>",
+      "coste_real": <float>,
+      "merma_coste": <float>
+    }}
+  ],
+  "coste_total_real": <float>,
+  "coste_total_sin_merma": <float>,
+  "sobrecoste_por_merma": <float>,
+  "food_cost_pct": <float>,
+  "margen_bruto": <float>,
+  "valoracion": "<excelente|correcto|ajustado|critico>",
+  "mermas_aprovechables": ["<merma noble y para qué usarla>"],
+  "recomendaciones": ["<recomendación concreta de optimización sin perder calidad>"],
+  "precio_venta_sugerido_30pct": <float>
+}}"""
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _parse_raw(response.content[0].text.strip())
+
+
+def costear_menu_degustacion(
+    nombre_menu: str,
+    pases_txt: str,
+    precio_menu: float,
+    num_comensales_servicio: int = 30,
+    maridaje_incluido: bool = False,
+) -> dict:
+    """Costea un menú degustación multipase y la IA actúa como ANALISTA, no como creadora.
+
+    En alta cocina el chef NO quiere que la IA invente su menú: quiere que le controle el
+    food cost pase por pase, le valide la progresión (intensidad, texturas, temperaturas)
+    y le diga dónde se le va el margen. Ese es el rol aquí.
+    """
+
+    maridaje_txt = (
+        "El precio incluye maridaje de vinos: considera ~30-35% del coste como bebida."
+        if maridaje_incluido else
+        "El precio es solo de comida (sin maridaje)."
+    )
+
+    prompt = f"""Eres el director gastronómico y controller de un restaurante de alta cocina (nivel estrella Michelin).
+NO debes reinventar ni sustituir el menú del chef: tu trabajo es ANALIZARLO con rigor de costes y de sala.
+
+MENÚ DEGUSTACIÓN: {nombre_menu}
+- Precio de venta del menú por comensal: {precio_menu}€
+- {maridaje_txt}
+- Comensales por servicio (para compra y mise en place): {num_comensales_servicio}
+
+PASES DEL MENÚ (el chef indica cada pase y, cuando puede, sus ingredientes y coste aproximado):
+{pases_txt}
+
+Tu análisis debe:
+1. Estimar el coste de materia prima por comensal de CADA pase (sé realista con producto de alta gama y su merma).
+2. Sumar el coste total del menú y calcular el food cost (coste/precio). En alta cocina el food cost objetivo suele ser 28-35%.
+3. Evaluar la PROGRESIÓN gastronómica: arranque, subida de intensidad, equilibrio de proteínas, alternancia de temperaturas y texturas, transición a postre.
+4. Señalar los pases que más comprometen el margen y proponer ajustes que NO degraden la experiencia (gramaje, mermas nobles, producto de temporada, sustitución de guarnición cara).
+5. Detectar riesgos de alérgenos y huecos para una versión vegetariana del menú (clave en alta cocina hoy).
+
+Responde ÚNICAMENTE con este JSON (sin texto adicional, sin markdown):
+{{
+  "pases": [
+    {{
+      "orden": <int>,
+      "nombre": "<nombre del pase>",
+      "tipo": "<aperitivo|snack|entrante|mar|tierra|principal|prepostre|postre|petit four>",
+      "coste_comensal": <float>,
+      "intensidad": "<baja|media|alta>",
+      "temperatura": "<frio|templado|caliente>",
+      "observacion": "<nota breve de coste o técnica>"
+    }}
+  ],
+  "coste_total_comensal": <float>,
+  "food_cost_pct": <float>,
+  "margen_bruto_comensal": <float>,
+  "valoracion_margen": "<excelente|correcto|ajustado|critico>",
+  "analisis_progresion": "<2-4 líneas sobre el equilibrio y la curva del menú>",
+  "pases_criticos": ["<pase que compromete margen y por qué>"],
+  "recomendaciones": ["<ajuste concreto sin perder nivel>"],
+  "alertas_alergenos": ["<alérgeno transversal a vigilar en sala>"],
+  "nota_menu_vegetariano": "<viabilidad y sugerencia para versión vegetariana>"
+}}"""
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=3000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _parse_raw(response.content[0].text.strip())
+
+
 def ficha_a_pdf(ficha: dict, nombre_restaurante: str = "Mi Restaurante", logo_path: str = None) -> bytes:
     """Genera PDF profesional de ficha tecnica con QR, alergenos destacados y tabla de margenes."""
     from reportlab.lib.pagesizes import A4

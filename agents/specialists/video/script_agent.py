@@ -123,6 +123,7 @@ class ScriptAgent:
         duration_minutes: int = 10,
         platform: str = "both",
         language: str = "es",
+        brief: dict = None,
     ) -> VideoScript:
         """Genera un VideoScript completo listo para producción.
 
@@ -132,12 +133,18 @@ class ScriptAgent:
             duration_minutes: Duración objetivo en minutos (1–20)
             platform: youtube | tiktok | both
             language: Código de idioma, ej: "es", "en"
+            brief: dict opcional con directrices creativas del usuario:
+                - key_points: list[str]  — puntos obligatorios a incluir
+                - reference_text: str    — texto de papers/artículos a citar
+                - visual_cues: dict      — {"tema": "pexels search query"}
+                - avoid: list[str]       — temas a evitar
+                - tone_notes: str        — notas de tono extra
         """
         niche = niche.lower().strip()
         cfg = NICHE_CONFIG.get(niche, NICHE_CONFIG["biohacking"])
 
         n_sections, section_duration = self._calc_structure(duration_minutes)
-        prompt = self._build_prompt(topic, niche, cfg, duration_minutes, n_sections, section_duration, platform, language)
+        prompt = self._build_prompt(topic, niche, cfg, duration_minutes, n_sections, section_duration, platform, language, brief)
 
         response = self.client.messages.create(
             model=settings.default_model,
@@ -174,7 +181,37 @@ class ScriptAgent:
         else:
             return 5, content_seconds // 5
 
-    def _build_prompt(self, topic, niche, cfg, duration_minutes, n_sections, section_duration, platform, language) -> str:
+    def _build_brief_section(self, brief: dict) -> str:
+        """Convierte el dict de brief en texto para inyectar en el prompt."""
+        if not brief:
+            return ""
+        lines = ["\n── DIRECTRICES DEL CREADOR (OBLIGATORIO CUMPLIR) ──────────────────────────"]
+
+        if brief.get("key_points"):
+            lines.append("\nPUNTOS CLAVE OBLIGATORIOS A INCLUIR (distribúyelos a lo largo del guión):")
+            for pt in brief["key_points"]:
+                lines.append(f"  • {pt}")
+
+        if brief.get("reference_text"):
+            text = brief["reference_text"][:8000]
+            lines.append(f"\nMATERIAL DE REFERENCIA (cita datos exactos, estudios o afirmaciones de aquí — prioridad sobre tu conocimiento general):\n{text}")
+
+        if brief.get("avoid"):
+            avoid = brief["avoid"] if isinstance(brief["avoid"], list) else [brief["avoid"]]
+            lines.append(f"\nTEMAS A EVITAR: {', '.join(avoid)}")
+
+        if brief.get("tone_notes"):
+            lines.append(f"\nNOTAS DE TONO: {brief['tone_notes']}")
+
+        if brief.get("visual_cues"):
+            lines.append("\nPISTAS VISUALES (usa estas búsquedas en visual_keywords cuando el tema aparezca):")
+            for trigger, query in brief["visual_cues"].items():
+                lines.append(f"  • Cuando menciones '{trigger}' → visual_keywords debe incluir: \"{query}\"")
+
+        lines.append("────────────────────────────────────────────────────────────────────────────\n")
+        return "\n".join(lines)
+
+    def _build_prompt(self, topic, niche, cfg, duration_minutes, n_sections, section_duration, platform, language, brief=None) -> str:
         lang_instruction = "en español neutro latino (válido para España y LATAM)" if language == "es" else f"in {language}"
 
         platform_notes = {
@@ -182,6 +219,8 @@ class ScriptAgent:
             "tiktok": "Optimizado para TikTok: caption de máx 150 chars con 3-5 hashtags trending, gancho visual en primeros 2s.",
             "both": "Optimizado para ambas plataformas: versión YouTube con SEO completo + versión TikTok de la sección más viral.",
         }.get(platform, "")
+
+        brief_block = self._build_brief_section(brief)
 
         return f"""Genera un guión de video completo para el siguiente tema.
 
@@ -199,6 +238,7 @@ CONFIGURACIÓN DEL NICHO:
 
 ESTRUCTURA REQUERIDA: {n_sections} secciones de ~{section_duration} segundos cada una.
 {platform_notes}
+{brief_block}
 
 REGLAS ALGORÍTMICAS OBLIGATORIAS:
 1. El hook (primeros 15s) debe generar una pregunta en la mente del espectador que solo se responde viendo todo el video

@@ -1,0 +1,31 @@
+# ============================================================================
+#  Docker Compose para DESARROLLO LOCAL
+#  Levanta UNICAMENTE PostgreSQL. La API y el frontend se ejecutan con pnpm.
+#
+#  Uso:
+#    pnpm db:up      (o: docker compose up -d)
+#
+#  Postgres queda accesible en el puerto 5433 de tu ordenador.
+# ============================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: citas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-citas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia-esta-contrasena}
+      POSTGRES_DB: ${POSTGRES_DB:-citas}
+    ports:
+      # host:container  -> en tu ordenador es el 5433
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-citas} -d ${POSTGRES_DB:-citas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

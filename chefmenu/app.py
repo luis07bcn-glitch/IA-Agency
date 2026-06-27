@@ -15,11 +15,13 @@ from database import (
     init_db, get_platos, add_plato, update_plato, delete_plato, duplicate_plato,
     get_despensa, add_despensa, delete_despensa,
     save_menu, get_menus_guardados, bulk_add_platos,
+    register_user, authenticate_user, update_nombre_restaurante,
 )
 from ai_generator import (
     generar_menu, analizar_escandallo, importar_platos_desde_texto,
     importar_platos_desde_pdf, analizar_foto_despensa, modo_escandalo,
     generar_briefing, generar_ficha_tecnica, ficha_a_pdf,
+    escandallo_avanzado, costear_menu_degustacion,
 )
 
 init_db()
@@ -60,16 +62,83 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTH GATE — mostrar login/registro si no hay sesión activa
+# ══════════════════════════════════════════════════════════════════════════════
+if "user" not in st.session_state:
+    st.markdown("""<div style="text-align:center; padding:40px 0 10px;">
+        <h1 style="color:#4CAF50; font-size:2.5rem;">🍽️ ChefMenu AI</h1>
+        <p style="color:#90caf9; font-size:1.1rem;">Menús inteligentes para tu restaurante</p>
+    </div>""", unsafe_allow_html=True)
+
+    col_l, col_r = st.columns([1, 1], gap="large")
+
+    with col_l:
+        st.subheader("Iniciar sesión")
+        with st.form("form_login"):
+            email_login = st.text_input("Email")
+            pass_login = st.text_input("Contraseña", type="password")
+            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+                user = authenticate_user(email_login, pass_login)
+                if user:
+                    st.session_state["user"] = user
+                    st.rerun()
+                else:
+                    st.error("Email o contraseña incorrectos.")
+
+    with col_r:
+        st.subheader("Crear cuenta")
+        with st.form("form_registro"):
+            email_reg = st.text_input("Email")
+            nombre_reg = st.text_input("Nombre del restaurante")
+            pass_reg = st.text_input("Contraseña", type="password")
+            pass_reg2 = st.text_input("Repite la contraseña", type="password")
+            if st.form_submit_button("Registrarme", use_container_width=True):
+                if not email_reg or not nombre_reg or not pass_reg:
+                    st.error("Rellena todos los campos.")
+                elif pass_reg != pass_reg2:
+                    st.error("Las contraseñas no coinciden.")
+                elif len(pass_reg) < 6:
+                    st.error("La contraseña debe tener al menos 6 caracteres.")
+                else:
+                    user = register_user(email_reg, pass_reg, nombre_reg)
+                    if user:
+                        st.session_state["user"] = user
+                        st.success("Cuenta creada. Bienvenido/a!")
+                        st.rerun()
+                    else:
+                        st.error("Ese email ya está registrado. Inicia sesión.")
+    st.stop()
+
+# Usuario autenticado
+_user = st.session_state["user"]
+user_id: int = _user["id"]
+nombre_restaurante: str = _user["nombre_restaurante"]
+
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/emoji/96/fork-and-knife-with-plate.png", width=60)
 st.sidebar.title("ChefMenu AI")
-st.sidebar.markdown("*Menús inteligentes para tu restaurante*")
+st.sidebar.markdown(f"*{nombre_restaurante}*")
 st.sidebar.divider()
 
 pagina = st.sidebar.radio(
     "Navegación",
-    ["🍽️ Generar Menú", "☀️ Briefing del Día", "📋 Mis Platos", "📥 Importar Platos", "🛒 Despensa", "📊 Escandallo", "♻️ Escándalo Mode", "📁 Menús Guardados"],
+    ["🍽️ Generar Menú", "☀️ Briefing del Día", "📋 Mis Platos", "📥 Importar Platos", "🛒 Despensa", "📊 Escandallo", "🌟 Alta Cocina", "♻️ Escándalo Mode", "📁 Menús Guardados"],
     label_visibility="collapsed",
 )
+
+st.sidebar.divider()
+with st.sidebar.expander("⚙️ Mi cuenta"):
+    nuevo_nombre = st.text_input("Nombre del restaurante", value=nombre_restaurante, key="nb_rest")
+    if st.button("Guardar nombre", use_container_width=True, key="btn_nb"):
+        update_nombre_restaurante(user_id, nuevo_nombre)
+        st.session_state["user"]["nombre_restaurante"] = nuevo_nombre
+        st.rerun()
+    st.caption(f"Email: {_user['email']}")
+
+if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+    del st.session_state["user"]
+    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PÁGINA 1 — GENERAR MENÚ
@@ -127,9 +196,9 @@ if pagina == "🍽️ Generar Menú":
 
     with col2:
         if generar:
-            platos = get_platos()
-            despensa = get_despensa() if usar_despensa else []
-            historial = get_menus_guardados()[:6] if usar_rotacion else []
+            platos = get_platos(user_id)
+            despensa = get_despensa(user_id) if usar_despensa else []
+            historial = get_menus_guardados(user_id)[:6] if usar_rotacion else []
 
             primeros_bd = [p for p in platos if p["categoria"] == "primero"]
             segundos_bd = [p for p in platos if p["categoria"] == "segundo"]
@@ -200,7 +269,7 @@ if pagina == "🍽️ Generar Menú":
                 nombre_menu = ca.text_input("Nombre del menú", value="Menú semana")
                 fecha_menu = cb.date_input("Fecha")
                 if st.form_submit_button("💾 Guardar este menú", use_container_width=True):
-                    save_menu(nombre_menu, str(fecha_menu), precio_actual, resultado)
+                    save_menu(user_id, nombre_menu, str(fecha_menu), precio_actual, resultado)
                     st.success("Menú guardado.")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -215,7 +284,7 @@ elif pagina == "☀️ Briefing del Día":
     with col1:
         st.subheader("Datos del servicio")
 
-        menus_guardados = get_menus_guardados()
+        menus_guardados = get_menus_guardados(user_id)
         menu_opciones = {f"{m['nombre']} — {m['fecha']}": m for m in menus_guardados}
 
         fecha_hoy = st.date_input("Fecha del servicio")
@@ -251,7 +320,7 @@ elif pagina == "☀️ Briefing del Día":
             if not menu_seleccionado:
                 st.error("Selecciona o genera un menú primero.")
             else:
-                despensa = get_despensa() if usar_despensa_b else []
+                despensa = get_despensa(user_id) if usar_despensa_b else []
                 with st.spinner("Preparando el briefing del servicio..."):
                     try:
                         briefing = generar_briefing(
@@ -322,13 +391,12 @@ elif pagina == "📋 Mis Platos":
     with tab1:
         filtro_cat = st.selectbox("Filtrar por categoría", ["Todos", "primero", "segundo", "postre"])
         cat = None if filtro_cat == "Todos" else filtro_cat
-        platos = get_platos(categoria=cat)
+        platos = get_platos(user_id, categoria=cat)
         st.caption(f"{len(platos)} platos encontrados")
 
         if not platos:
             st.info("No hay platos. Añádelos manualmente o impórtalos desde un documento.")
         else:
-            nombre_restaurante = st.sidebar.text_input("Nombre restaurante (PDF)", value="Mi Restaurante")
 
             for p in platos:
                 alergenos = json.loads(p.get("alergenos", "[]"))
@@ -411,11 +479,11 @@ elif pagina == "📋 Mis Platos":
                         st.toast(f"'{p['nombre']}' añadido al menú rápido")
 
                     if cc.button("📋 Duplicar", key=f"dup_{p['id']}"):
-                        duplicate_plato(p["id"])
+                        duplicate_plato(user_id, p["id"])
                         st.rerun()
 
                     if cd.button("🗑️ Eliminar", key=f"del_{p['id']}"):
-                        delete_plato(p["id"])
+                        delete_plato(user_id, p["id"])
                         st.rerun()
 
                     fp = st.session_state.get(f"ficha_prev_{p['id']}")
@@ -484,7 +552,7 @@ elif pagina == "📋 Mis Platos":
                         ("vegano", es_vegano), ("vegetariano", es_veg),
                         ("sin_gluten", es_sg), ("sin_lactosa", es_sl),
                     ] if ok]
-                    add_plato(nombre, categoria, proteina, coste, tiempo, alergenos, dietas, descripcion, subtipo)
+                    add_plato(user_id, nombre, categoria, proteina, coste, tiempo, alergenos, dietas, descripcion, subtipo)
                     st.success(f"✅ '{nombre}' añadido.")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -561,7 +629,7 @@ elif pagina == "📥 Importar Platos":
         col_a.markdown(f"**{len(seleccionados)} de {len(platos_importados)} platos seleccionados**")
         if col_b.button("💾 Guardar platos seleccionados", type="primary", use_container_width=True):
             if seleccionados:
-                bulk_add_platos(seleccionados)
+                bulk_add_platos(user_id, seleccionados)
                 st.success(f"✅ {len(seleccionados)} platos añadidos a tu base de datos.")
                 del st.session_state["platos_importados"]
                 st.balloons()
@@ -603,6 +671,7 @@ elif pagina == "🛒 Despensa":
                                 nota = col2.text_input("Nota / Caducidad", ing.get("nota", ""), key=f"nota_{i}")
                                 if st.button("➕ Añadir a despensa", key=f"addphoto_{i}"):
                                     add_despensa(
+                                        user_id,
                                         ing.get("ingrediente", ""),
                                         cantidad,
                                         "",
@@ -626,13 +695,13 @@ elif pagina == "🛒 Despensa":
             nota = st.text_area("Nota", placeholder="De oferta / hay que gastar antes del viernes", height=60)
             if st.form_submit_button("➕ Añadir", type="primary", use_container_width=True):
                 if ingrediente:
-                    add_despensa(ingrediente, cantidad, unidad if unidad != "—" else "", str(caducidad) if caducidad else "", nota)
+                    add_despensa(user_id, ingrediente, cantidad, unidad if unidad != "—" else "", str(caducidad) if caducidad else "", nota)
                     st.success(f"'{ingrediente}' añadido.")
                     st.rerun()
 
     # Lista actual
     st.subheader("📋 Ingredientes actuales en despensa")
-    despensa = get_despensa()
+    despensa = get_despensa(user_id)
     if not despensa:
         st.info("La despensa está vacía.")
     else:
@@ -647,7 +716,7 @@ elif pagina == "🛒 Despensa":
                 txt += f"\n*{item['nota']}*"
             c1.markdown(txt)
             if c2.button("✕", key=f"del_d_{item['id']}"):
-                delete_despensa(item["id"])
+                delete_despensa(user_id, item["id"])
                 st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -702,6 +771,197 @@ elif pagina == "📊 Escandallo":
                     c2.markdown(f"**{ing['coste_estimado']:.2f}€**")
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PÁGINA — ALTA COCINA (menú degustación + escandallo con rendimiento)
+# ══════════════════════════════════════════════════════════════════════════════
+elif pagina == "🌟 Alta Cocina":
+    st.markdown("""<div style="background:linear-gradient(135deg,#1a1500,#1a2035);
+        border:1px solid #f9a825; border-radius:12px; padding:18px 22px; margin-bottom:18px;">
+        <h1 style="margin:0; color:#f9a825;">🌟 Alta Cocina</h1>
+        <p style="margin:6px 0 0; color:#cfd8dc;">Control de coste de producto de alta gama y diseño de menú degustación.
+        Aquí la IA <b>no inventa tu menú</b> — lo audita pase a pase y te dice dónde se te va el margen.</p>
+    </div>""", unsafe_allow_html=True)
+
+    tab_deg, tab_esc = st.tabs(["🍽️ Menú Degustación", "🔬 Escandallo con Rendimiento / Merma"])
+
+    # ── TAB 1: MENÚ DEGUSTACIÓN ───────────────────────────────────────────────
+    with tab_deg:
+        st.markdown("Define los pases de tu degustación. La IA estima el coste por comensal de cada pase, "
+                    "valida la progresión gastronómica y señala los pases que comprometen el margen.")
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            nombre_menu_deg = st.text_input("Nombre del menú", placeholder="Ej: Menú Raíces — Otoño")
+            cc1, cc2 = st.columns(2)
+            precio_menu_deg = cc1.number_input("Precio menú / comensal (€)", min_value=20.0, max_value=600.0, value=120.0, step=5.0)
+            comensales_deg = cc2.number_input("Comensales / servicio", min_value=1, max_value=200, value=30, step=1)
+            maridaje_deg = st.checkbox("El precio incluye maridaje de vinos")
+            pases_txt = st.text_area(
+                "Pases del menú (uno por línea)",
+                height=240,
+                placeholder=(
+                    "Aperitivo: tartaleta de remolacha y queso de cabra\n"
+                    "Snack: buñuelo de bacalao, alioli de azafrán\n"
+                    "Mar: gamba roja de Denia, su jugo, hinojo — gamba 8€/ud\n"
+                    "Tierra: royal de liebre, castaña, cacao\n"
+                    "Principal: pichón asado, remolacha, fondo de sus carcasas\n"
+                    "Prepostre: granizado de manzana verde y eucalipto\n"
+                    "Postre: torrija caramelizada, helado de leche de oveja"
+                ),
+            )
+            analizar_deg = st.button("🔍 Auditar menú degustación", type="primary", use_container_width=True)
+
+        with col2:
+            if analizar_deg:
+                if not pases_txt.strip():
+                    st.error("Escribe al menos los pases del menú.")
+                else:
+                    with st.spinner("El director gastronómico está auditando el menú..."):
+                        try:
+                            st.session_state["deg_resultado"] = costear_menu_degustacion(
+                                nombre_menu_deg or "Menú degustación",
+                                pases_txt, precio_menu_deg,
+                                int(comensales_deg), maridaje_deg,
+                            )
+                            st.session_state["deg_precio"] = precio_menu_deg
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+
+            deg = st.session_state.get("deg_resultado")
+            if deg:
+                fc = deg.get("food_cost_pct", 0)
+                val = deg.get("valoracion_margen", "")
+                val_color = {"excelente": "#1b4332", "correcto": "#1b4332",
+                             "ajustado": "#3d2700", "critico": "#2d1f1f"}.get(val, "#1a2035")
+                k1, k2, k3 = st.columns(3)
+                k1.metric("Coste/comensal", f"{deg.get('coste_total_comensal', 0):.2f}€")
+                k2.metric("Food cost", f"{fc:.1f}%", delta="✓" if fc <= 35 else "⚠ Alto", delta_color="off")
+                k3.metric("Margen/comensal", f"{deg.get('margen_bruto_comensal', 0):.2f}€")
+                st.markdown(f"""<div style="background:{val_color}; border-radius:8px; padding:10px 14px; margin:8px 0;">
+                    <b>Valoración de margen:</b> {val.upper()}</div>""", unsafe_allow_html=True)
+
+        # Detalle pase a pase (a todo el ancho)
+        deg = st.session_state.get("deg_resultado")
+        if deg:
+            st.divider()
+            st.subheader("Pases — coste y curva del menú")
+            temp_icono = {"frio": "❄️", "templado": "🌡️", "caliente": "🔥"}
+            int_color = {"baja": "#64b5f6", "media": "#ffb74d", "alta": "#ff7043"}
+            for p in sorted(deg.get("pases", []), key=lambda x: x.get("orden", 0)):
+                inten = p.get("intensidad", "media")
+                st.markdown(f"""<div style="background:#1a2035; border-left:4px solid {int_color.get(inten,'#ffb74d')};
+                    padding:10px 14px; border-radius:6px; margin:5px 0; display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:1.2rem; font-weight:bold; color:#f9a825; min-width:30px;">{p.get('orden','')}</span>
+                    <div style="flex:1;">
+                        <b style="color:#e0e0e0;">{p.get('nombre','')}</b>
+                        <span style="color:#90a4ae; font-size:0.78rem;"> · {p.get('tipo','')}</span><br>
+                        <small style="color:#aaa;">{temp_icono.get(p.get('temperatura',''),'')} {p.get('temperatura','')}
+                        · intensidad {inten} · {p.get('observacion','')}</small>
+                    </div>
+                    <span style="color:white; font-weight:bold; font-size:1.05rem;">{p.get('coste_comensal',0):.2f}€</span>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown(f"**📈 Progresión:** {deg.get('analisis_progresion','')}")
+
+            cA, cB = st.columns(2)
+            with cA:
+                if deg.get("pases_criticos"):
+                    st.markdown("**⚠️ Pases que comprometen el margen**")
+                    for pc in deg["pases_criticos"]:
+                        st.markdown(f'<div class="alerta">{pc}</div>', unsafe_allow_html=True)
+                if deg.get("alertas_alergenos"):
+                    st.markdown("**🧬 Alérgenos a vigilar en sala**")
+                    for a in deg["alertas_alergenos"]:
+                        st.markdown(f"- {a}")
+            with cB:
+                if deg.get("recomendaciones"):
+                    st.markdown("**💡 Recomendaciones (sin perder nivel)**")
+                    for r in deg["recomendaciones"]:
+                        st.markdown(f"- {r}")
+                if deg.get("nota_menu_vegetariano"):
+                    st.info(f"🌱 **Versión vegetariana:** {deg['nota_menu_vegetariano']}")
+
+    # ── TAB 2: ESCANDALLO CON RENDIMIENTO ─────────────────────────────────────
+    with tab_esc:
+        st.markdown("El escandallo de verdad: cada producto parte de su **precio de compra en bruto** y su "
+                    "**% de rendimiento** (lo que queda tras limpiar, desespinar, deshuesar…). El coste real "
+                    "se calcula sobre el producto neto — que es donde se esconde la pérdida de margen.")
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            nombre_plato_av = st.text_input("Nombre del plato / pase", placeholder="Ej: Gamba roja, su jugo, hinojo", key="av_nom")
+            precio_venta_av = st.number_input("Precio de venta del plato (€)", min_value=2.0, max_value=300.0, value=28.0, step=1.0, key="av_pvp")
+            ingredientes_av = st.text_area(
+                "Ingredientes (producto · cantidad neta · precio compra · rendimiento %)",
+                height=200,
+                placeholder=(
+                    "Gamba roja: 90g netos, 80€/kg, rendimiento 40%\n"
+                    "Hinojo: 40g, 3€/kg, rendimiento 75%\n"
+                    "Mantequilla: 15g, 9€/kg\n"
+                    "Fondo de marisco: 50ml (de las cabezas)\n"
+                    "Aceite de oliva AOVE: 10ml, 12€/litro"
+                ),
+                key="av_ing",
+            )
+            st.caption("Si no indicas el rendimiento, la IA lo estima según el producto.")
+            analizar_av = st.button("🔬 Calcular escandallo real", type="primary", use_container_width=True, key="av_btn")
+
+        with col2:
+            if analizar_av:
+                if not (nombre_plato_av and ingredientes_av.strip()):
+                    st.error("Rellena el nombre y los ingredientes.")
+                else:
+                    with st.spinner("Calculando coste real con mermas..."):
+                        try:
+                            st.session_state["av_resultado"] = escandallo_avanzado(
+                                nombre_plato_av, ingredientes_av, precio_venta_av
+                            )
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+
+            av = st.session_state.get("av_resultado")
+            if av:
+                fc = av.get("food_cost_pct", 0)
+                val = av.get("valoracion", "")
+                val_color = {"excelente": "#1b4332", "correcto": "#1b4332",
+                             "ajustado": "#3d2700", "critico": "#2d1f1f"}.get(val, "#1a2035")
+                k1, k2 = st.columns(2)
+                k1.metric("Coste real/ración", f"{av.get('coste_total_real', 0):.2f}€")
+                k2.metric("Food cost", f"{fc:.1f}%", delta="✓" if fc <= 35 else "⚠", delta_color="off")
+                st.markdown(f"""<div style="background:{val_color}; border-radius:8px; padding:10px 14px; margin:6px 0;">
+                    <b>{val.upper()}</b> · Margen bruto: {av.get('margen_bruto',0):.2f}€ ·
+                    Sobrecoste por merma: <b style="color:#ff8a65;">{av.get('sobrecoste_por_merma',0):.2f}€</b></div>""",
+                    unsafe_allow_html=True)
+                st.caption(f"PVP sugerido al 30% food cost: {av.get('precio_venta_sugerido_30pct', 0):.2f}€")
+
+        av = st.session_state.get("av_resultado")
+        if av and av.get("desglose"):
+            st.divider()
+            st.subheader("Desglose por producto (neto vs. bruto)")
+            header = st.columns([3, 1.3, 1, 1.3, 1.2, 1.2])
+            for c, t in zip(header, ["Producto", "Neto", "Rend.", "Bruto compra", "Coste real", "Merma €"]):
+                c.markdown(f"**{t}**")
+            for ing in av["desglose"]:
+                row = st.columns([3, 1.3, 1, 1.3, 1.2, 1.2])
+                row[0].markdown(ing.get("ingrediente", ""))
+                row[1].markdown(str(ing.get("cantidad_neta", "")))
+                row[2].markdown(f"{ing.get('rendimiento_pct', '')}%")
+                row[3].markdown(str(ing.get("cantidad_bruta", "")))
+                row[4].markdown(f"**{ing.get('coste_real', 0):.2f}€**")
+                row[5].markdown(f"<span style='color:#ff8a65;'>{ing.get('merma_coste', 0):.2f}€</span>", unsafe_allow_html=True)
+
+            cA, cB = st.columns(2)
+            with cA:
+                if av.get("mermas_aprovechables"):
+                    st.markdown("**♻️ Mermas nobles aprovechables**")
+                    for m in av["mermas_aprovechables"]:
+                        st.markdown(f"- {m}")
+            with cB:
+                if av.get("recomendaciones"):
+                    st.markdown("**💡 Optimización sin perder calidad**")
+                    for r in av["recomendaciones"]:
+                        st.markdown(f"- {r}")
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PÁGINA 6 — ESCÁNDALO MODE
 # ══════════════════════════════════════════════════════════════════════════════
 elif pagina == "♻️ Escándalo Mode":
@@ -718,7 +978,7 @@ elif pagina == "♻️ Escándalo Mode":
         st.subheader("¿Qué tienes para aprovechar?")
 
         # Opción de importar desde despensa
-        despensa_actual = get_despensa()
+        despensa_actual = get_despensa(user_id)
         if despensa_actual:
             if st.button("📥 Importar todo de la despensa", use_container_width=True):
                 st.session_state["sobras_escandalo"] = [
@@ -812,9 +1072,9 @@ elif pagina == "♻️ Escándalo Mode":
             st.divider()
             # Botón para añadir platos aprovechamiento a la BD
             if st.button("💾 Guardar estos platos en mi BD", use_container_width=True):
-                from database import add_plato
                 for plato in resultado_esc.get("platos", []):
                     add_plato(
+                        user_id,
                         nombre=plato["nombre"],
                         categoria=plato["categoria"],
                         proteina="ninguna",
@@ -833,7 +1093,7 @@ elif pagina == "♻️ Escándalo Mode":
 elif pagina == "📁 Menús Guardados":
     st.title("📁 Historial de Menús")
 
-    menus = get_menus_guardados()
+    menus = get_menus_guardados(user_id)
     if not menus:
         st.info("Todavía no has guardado ningún menú.")
     else:

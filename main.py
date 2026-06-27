@@ -577,22 +577,61 @@ def script(
     language: str = typer.Option("es", "--lang", "-l", help="Idioma: es | en"),
     output: str = typer.Option(None, "--output", "-o", help="Guardar en outputs/<archivo>.json"),
     show_narration: bool = typer.Option(False, "--narration", help="Mostrar texto completo del guión"),
+    brief_file: str = typer.Option(None, "--brief", "-b", help="JSON con directrices creativas {key_points, reference_text, visual_cues, avoid, tone_notes}"),
+    key_points: str = typer.Option("", "--key-points", help="Puntos clave separados por | ej: 'dato A|dato B|dato C'"),
+    reference: str = typer.Option("", "--reference", "-r", help="Texto de referencia (o ruta a .txt/.pdf con @ruta)"),
+    avoid: str = typer.Option("", "--avoid", help="Temas a evitar, separados por |"),
 ):
     """[bold cyan]ScriptAgent — genera guiones estructurados para YouTube y TikTok.[/bold cyan]
 
     Ejemplos:
       python main.py script "Los 5 hacks de sueño que usan los CEOs" --niche biohacking
       python main.py script "Cómo invertir 100€ al mes" --niche finanzas --duration 15
-      python main.py script "El truco mental que duplica tu productividad" --niche motivacion -d 3 -p tiktok
+      python main.py script "Tomar el sol" --key-points "15 min basta|regula cortisol|reduce depresión"
+      python main.py script "Inversión" --brief brief_warren.json
     """
+    import json as _json
+    from pathlib import Path as _Path
     from agents.specialists.video.script_agent import ScriptAgent
     from tools.file_tool import save_to_file
     from rich.table import Table
     from rich import box as rbox
 
+    # ── Construir brief ──────────────────────────────────────────────────────
+    brief: dict = {}
+    if brief_file:
+        if not _Path(brief_file).exists():
+            console.print(f"[red]No se encuentra el brief: {brief_file}[/red]")
+            raise typer.Exit(1)
+        with open(brief_file, encoding="utf-8") as f:
+            brief = _json.load(f)
+
+    if key_points:
+        brief.setdefault("key_points", []).extend([p.strip() for p in key_points.split("|") if p.strip()])
+
+    if reference:
+        if reference.startswith("@"):
+            ref_path = _Path(reference[1:])
+            if ref_path.suffix.lower() == ".pdf":
+                from agents.utils.pdf_reader import extract_pdf_text
+                brief["reference_text"] = extract_pdf_text(str(ref_path))
+                console.print(f"[dim]PDF cargado: {ref_path.name} ({len(brief['reference_text'])} chars)[/dim]")
+            elif ref_path.exists():
+                brief["reference_text"] = ref_path.read_text(encoding="utf-8")[:5000]
+            else:
+                console.print(f"[red]No se encuentra el archivo de referencia: {ref_path}[/red]")
+                raise typer.Exit(1)
+        else:
+            brief["reference_text"] = reference
+
+    if avoid:
+        brief["avoid"] = [a.strip() for a in avoid.split("|") if a.strip()]
+
     console.print(Panel(
         f"[bold]Tema:[/bold] {topic}\n"
-        f"[bold]Nicho:[/bold] {niche}  ·  [bold]Duración:[/bold] {duration} min  ·  [bold]Plataforma:[/bold] {platform}",
+        f"[bold]Nicho:[/bold] {niche}  ·  [bold]Duración:[/bold] {duration} min  ·  [bold]Plataforma:[/bold] {platform}"
+        + (f"\n[bold]Brief:[/bold] {len(brief.get('key_points', []))} puntos clave · "
+           f"{'referencia incluida' if brief.get('reference_text') else 'sin referencia'}" if brief else ""),
         title="[bold cyan]IA-Agency · ScriptAgent[/bold cyan]",
         border_style="cyan",
     ))
@@ -604,6 +643,7 @@ def script(
             duration_minutes=duration,
             platform=platform,
             language=language,
+            brief=brief if brief else None,
         )
 
     # ── Resumen ──
@@ -680,6 +720,10 @@ def pipeline(
     yt_secrets: str   = typer.Option("",           "--yt-secrets",        help="client_secrets.json de Google Cloud"),
     yt_privacy: str   = typer.Option("private",    "--yt-privacy",        help="private | unlisted | public"),
     tt_token: str     = typer.Option("",           "--tt-token",          help="TikTok access_token"),
+    brief_file: str   = typer.Option(None,         "--brief",       "-b", help="JSON con directrices creativas del creador"),
+    key_points: str   = typer.Option("",           "--key-points",        help="Puntos clave separados por | ej: 'dato A|dato B'"),
+    reference: str    = typer.Option("",           "--reference",   "-r", help="Texto o @ruta a .txt/.pdf de referencia"),
+    avoid: str        = typer.Option("",           "--avoid",             help="Temas a evitar, separados por |"),
 ):
     """[bold cyan]PIPELINE completo — de tema a video listo en un solo comando.[/bold cyan]
 
@@ -688,7 +732,8 @@ def pipeline(
     Ejemplos:
       python main.py pipeline "Los 5 hacks de sueño de los CEOs" --niche biohacking
       python main.py pipeline "Cómo invertir 100€" --niche finanzas --duration 15 --orientation landscape
-      python main.py pipeline "Tema" --niche motivacion --no-subtitle
+      python main.py pipeline "Tomar el sol" --key-points "15 min de sol|regula cortisol|reduce depresión"
+      python main.py pipeline "Inversión" --brief brief_warren.json
       python main.py pipeline "Tema" --niche biohacking --publish youtube --yt-secrets client_secrets.json --yt-privacy public
     """
     from pathlib import Path
@@ -700,6 +745,35 @@ def pipeline(
     from agents.specialists.video.media_agent   import MediaAgent
     from agents.specialists.video.editor_agent  import EditorAgent
     from agents.specialists.video.subtitle_agent import SubtitleAgent
+
+    # ── Construir brief ──────────────────────────────────────────────────────
+    brief: dict = {}
+    if brief_file:
+        if not Path(brief_file).exists():
+            console.print(f"[red]No se encuentra el brief: {brief_file}[/red]")
+            raise typer.Exit(1)
+        with open(brief_file, encoding="utf-8") as f:
+            brief = _json.load(f)
+
+    if key_points:
+        brief.setdefault("key_points", []).extend([p.strip() for p in key_points.split("|") if p.strip()])
+
+    if reference:
+        if reference.startswith("@"):
+            ref_path = Path(reference[1:])
+            if ref_path.suffix.lower() == ".pdf":
+                from agents.utils.pdf_reader import extract_pdf_text
+                brief["reference_text"] = extract_pdf_text(str(ref_path))
+                console.print(f"[dim]PDF cargado: {ref_path.name}[/dim]")
+            elif ref_path.exists():
+                brief["reference_text"] = ref_path.read_text(encoding="utf-8")[:5000]
+        else:
+            brief["reference_text"] = reference
+
+    if avoid:
+        brief["avoid"] = [a.strip() for a in avoid.split("|") if a.strip()]
+
+    visual_cues = brief.get("visual_cues") if brief else None
 
     # ── Slug para carpetas ───────────────────────────────────────────────────
     slug = topic[:40].lower()
@@ -724,11 +798,17 @@ def pipeline(
 
     # ── 1. ScriptAgent ───────────────────────────────────────────────────────
     _step(1, total_steps, "ScriptAgent — generando guión")
+    if brief:
+        kp = len(brief.get("key_points", []))
+        has_ref = bool(brief.get("reference_text"))
+        has_cues = len(brief.get("visual_cues", {}))
+        console.print(f"  [dim]Brief activo: {kp} puntos clave · {'ref incluida' if has_ref else 'sin ref'} · {has_cues} visual cues[/dim]")
     with console.status("[dim]Escribiendo guión con IA...[/dim]"):
         video_script = ScriptAgent().run(
             topic=topic, niche=niche,
             duration_minutes=duration,
             platform=platform, language=language,
+            brief=brief if brief else None,
         )
     script_data = video_script.to_dict()
     script_json.parent.mkdir(parents=True, exist_ok=True)
@@ -762,6 +842,7 @@ def pipeline(
             output_dir=str(media_dir),
             orientation=orientation,
             clips_per_section=clips,
+            visual_cues=visual_cues,
         )
     media_data = media_output.to_dict()
     media_json = media_dir / "media_output.json"

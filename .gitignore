@@ -64,3 +64,13 @@ outputs/*
 # Credenciales YouTube/TikTok (nunca subir a git)
 client_secrets.json
 youtube_token.json
+
+# Node / JS (agente-whatsapp-citas y otros)
+node_modules/
+.pnpm-store/
+
+# Bases de datos DuckDB (financial_analyzer)
+*.duckdb
+
+# merakia-web tiene su propio repo git independiente — no trackear aquí
+merakia-web/

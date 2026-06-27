@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+onlyBuiltDependencies:
+  - sharp
+  - esbuild
+minimumReleaseAgeExclude:
+  - '@mastra/core@1.46.0'
+  - '@mastra/pg@1.14.1'
+allowBuilds:
+  sharp: true
