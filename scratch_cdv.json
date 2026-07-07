@@ -1,0 +1,247 @@
+{
+  "nombre": "Centre Dental Vilanova",
+  "tipo": "clínica dental",
+  "telefono": "938 11 59 30",
+  "web": "http://www.centredentalvilanova.com/",
+  "direccion": "Av. de Francesc Macia, 18, 08800 Vilanova i la Geltru, Barcelona",
+  "rating": 4.8,
+  "total_resenas": 349,
+  "ticket": 600,
+  "scorecard": {
+    "dimensiones": [
+      {
+        "clave": "gbp",
+        "nombre": "Ficha de Google Business",
+        "icono": "📍",
+        "peso": 1.5,
+        "score": 25.0,
+        "nivel": "débil",
+        "senales_ok": [
+          "Web vinculada desde Google",
+          "Teléfono visible en Google"
+        ],
+        "senales_falta": [
+          "Sin fotos en Google — las fichas con fotos reciben 42% más clics",
+          "Sin horario en Google — los clientes no saben cuándo están abiertos",
+          "Sin descripción — no explica qué ofrece ni se diferencia"
+        ]
+      },
+      {
+        "clave": "presencia_web",
+        "nombre": "Presencia & Rendimiento Web",
+        "icono": "🌐",
+        "peso": 1.4,
+        "score": 100.0,
+        "nivel": "fuerte",
+        "senales_ok": [
+          "Tiene web propia",
+          "HTTPS seguro",
+          "Carga rápida (<3s)",
+          "Optimizada para móvil"
+        ],
+        "senales_falta": []
+      },
+      {
+        "clave": "conversion",
+        "nombre": "Conversión & Captación",
+        "icono": "🎯",
+        "peso": 1.3,
+        "score": 100.0,
+        "nivel": "fuerte",
+        "senales_ok": [
+          "CTA clara de reserva/contacto",
+          "Formulario de captación",
+          "Captura de email"
+        ],
+        "senales_falta": []
+      },
+      {
+        "clave": "automatizacion",
+        "nombre": "Automatización & IA 24/7",
+        "icono": "🤖",
+        "peso": 1.7,
+        "score": 0.0,
+        "nivel": "crítico",
+        "senales_ok": [],
+        "senales_falta": [
+          "Sin chatbot ni agente IA — nadie atiende la web fuera de horario",
+          "WhatsApp sin automatizar — depende de una persona",
+          "Sin reservas automáticas — depende del teléfono"
+        ]
+      },
+      {
+        "clave": "seo_local",
+        "nombre": "SEO & Visibilidad Local",
+        "icono": "🔍",
+        "peso": 1.1,
+        "score": 0.0,
+        "nivel": "crítico",
+        "senales_ok": [],
+        "senales_falta": [
+          "Sin contenido — invisible en búsquedas",
+          "Sin integración con Google Business",
+          "No muestra reseñas en la web"
+        ]
+      },
+      {
+        "clave": "contenido",
+        "nombre": "Contenido & Autoridad",
+        "icono": "📝",
+        "peso": 0.9,
+        "score": 64.3,
+        "nivel": "aceptable",
+        "senales_ok": [
+          "Testimonios",
+          "Galería de imágenes"
+        ],
+        "senales_falta": [
+          "Sin vídeo — menos confianza y tiempo en página"
+        ]
+      },
+      {
+        "clave": "reputacion",
+        "nombre": "Reputación & Reseñas",
+        "icono": "⭐",
+        "peso": 1.2,
+        "score": 94.0,
+        "nivel": "fuerte",
+        "senales_ok": [
+          "Rating 4.8★",
+          "349 reseñas",
+          "Reputación limpia"
+        ],
+        "senales_falta": []
+      },
+      {
+        "clave": "datos",
+        "nombre": "Datos & Analítica",
+        "icono": "📊",
+        "peso": 0.8,
+        "score": 100.0,
+        "nivel": "fuerte",
+        "senales_ok": [
+          "Píxel/analítica instalado"
+        ],
+        "senales_falta": []
+      },
+      {
+        "clave": "fidelizacion",
+        "nombre": "Fidelización & Retención",
+        "icono": "💌",
+        "peso": 1.0,
+        "score": 100.0,
+        "nivel": "fuerte",
+        "senales_ok": [
+          "Base de datos de clientes (email)",
+          "Canal directo de re-engagement"
+        ],
+        "senales_falta": []
+      }
+    ],
+    "score_global": 60.4,
+    "nivel_global": "aceptable",
+    "percentil_nicho": null,
+    "score_medio_nicho": null,
+    "tamano_muestra_nicho": null
+  },
+  "win_probability": {
+    "score": 64,
+    "nivel": "alta",
+    "componentes": [
+      {
+        "factor": "Margen de mejora digital",
+        "valor": 40,
+        "peso": 0.35,
+        "aporta": 14.0
+      },
+      {
+        "factor": "Por detrás de su nicho",
+        "valor": 50,
+        "peso": 0.2,
+        "aporta": 10.0
+      },
+      {
+        "factor": "Urgencia del dolor",
+        "valor": 90,
+        "peso": 0.2,
+        "aporta": 18.0
+      },
+      {
+        "factor": "Accesibilidad de contacto",
+        "valor": 100,
+        "peso": 0.1,
+        "aporta": 10.0
+      },
+      {
+        "factor": "Tracción del negocio",
+        "valor": 80,
+        "peso": 0.15,
+        "aporta": 12.0
+      }
+    ],
+    "explicacion": "Prospecto caliente: urgencia del dolor es el motor (90/100). Hay mucho margen para venderle y cerrar rápido."
+  },
+  "resumen_oportunidad": "Excelente prospecto: clínica con reputación fuerte (4.8★) pero débil presencia digital que deja dinero sobre la mesa. El argumento de venta estrella es la IA 24/7 + reserva online para no perder ni una consulta fuera de horario, sumado a SEO local para atraer más pacientes nuevos.",
+  "pains": [
+    {
+      "categoria": "atencion_24_7",
+      "descripcion": "Pierden consultas y citas fuera de horario (tardes, noches, fines de semana) porque solo tienen WhatsApp humano. Cada consulta no atendida es un paciente que busca otra clínica.",
+      "urgencia": 9,
+      "servicio": "Agente IA 24/7 en WhatsApp para responder consultas, agendar citas y calificar pacientes automáticamente"
+    },
+    {
+      "categoria": "sistema_reserva_online",
+      "descripcion": "Dependen 100% del teléfono para reservas. Pacientes que no logran conectar o prefieren reservar online buscan competencia. Pierden citas confirmadas por fricción en el proceso.",
+      "urgencia": 9,
+      "servicio": "Sistema de reserva online integrado con calendario y recordatorios automáticos por SMS/WhatsApp"
+    },
+    {
+      "categoria": "invisibilidad_seo",
+      "descripcion": "Sin contenido SEO ni blog, no aparecen en búsquedas como 'dentista Vilanova' o 'limpieza dental Vilanova'. Pierden pacientes nuevos que buscan online antes de llamar.",
+      "urgencia": 8,
+      "servicio": "Estrategia SEO local + blog de contenido dental (higiene, implantes, ortodoncia, etc.) para posicionar en Google"
+    },
+    {
+      "categoria": "confianza_conversion",
+      "descripcion": "Visitantes de web bajan confianza por falta de vídeo de presentación y contenido visual. Tasa de conversión de visita a cita probablemente muy baja.",
+      "urgencia": 7,
+      "servicio": "Vídeo de presentación de clínica + galerías antes/después + testimonios en video"
+    }
+  ],
+  "perdida_total_mes": 0,
+  "perdidas": [],
+  "servicios_recomendados": [
+    {
+      "nombre": "Chatbot IA en la web 24/7",
+      "setup": 1470.0,
+      "mensual": 320.0,
+      "motivo": "No tiene chatbot ni agente IA en la web: nadie atiende las visitas 24/7.",
+      "impacto": "Atiende consultas 24/7 sin personal — captura el ~25% de leads que hoy se pierden"
+    },
+    {
+      "nombre": "Agente IA en WhatsApp 24/7",
+      "setup": 1300.0,
+      "mensual": 380.0,
+      "motivo": "Solo un enlace de WhatsApp atendido por una persona en horario.",
+      "impacto": "Responde en segundos a cualquier hora — convierte consultas de WhatsApp en citas"
+    },
+    {
+      "nombre": "Sistema de reservas online",
+      "setup": 990.0,
+      "mensual": 180.0,
+      "motivo": "Sin reserva/cita online: depende del teléfono.",
+      "impacto": "Citas online 24/7 con recordatorios automáticos — menos no-shows y más agenda cubierta"
+    },
+    {
+      "nombre": "SEO local + contenido",
+      "setup": 1230.0,
+      "mensual": 510.0,
+      "motivo": "Sin blog ni contenido: invisible en búsquedas locales.",
+      "impacto": "Aparecer en los primeros resultados locales cuando buscan 'clínica dental en Vilanova i la Geltrú'"
+    }
+  ],
+  "email_asunto": "Centre Dental Vilanova pierde citas cada noche (te explico)",
+  "email_cuerpo": "Hola responsable de Centre Dental Vilanova,\n\nHe analizado vuestra clínica esta semana. 349 reseñas con 4.8 estrellas en Vilanova i la Geltrú — eso no se construye por casualidad. Tenéis algo real.\n\nPero hay un problema silencioso que os está costando dinero ahora mismo.\n\nVuestra única vía de contacto fuera de horario es WhatsApp humano. Nadie responde a las 22h cuando alguien tiene dolor de muelas. Ese paciente cierra WhatsApp y llama a otra clínica.\n\nEn odontología, una consulta no atendida = entre 150€ y 800€ perdidos (revisión, ortodoncia, implante…). Si perdéis solo 3 consultas semanales fuera de horario, estáis dejando más de 2.000€ al mes sobre la mesa.\n\nLa solución es concreta: un agente IA en WhatsApp que responda al instante, resuelva dudas, y agende citas automáticamente — sin tocar vuestro flujo actual.\n\nSin fricción. Sin cambiar cómo trabajáis. Sin coste de personal extra.\n\n¿Tenéis 15 minutos esta semana para ver cómo funciona en directo?\n\nUn saludo,\nMarc\nMerakIA\n\nP.D. Hay dos clínicas en Vilanova que ya tienen reserva online activa. Cada semana que pasa, el hueco se cierra un poco más.",
+  "whatsapp_mensaje": "He visto que en Centre Dental Vilanova tienen 4.8★ en Google pero pierden consultas cada tarde/noche porque no pueden responder fuera de horario 📞\n\nCada cita no atendida es un paciente que llama a otra clínica—eso son decenas de euros y pacientes perdidos cada mes.\n\nPodemos configurar un chatbot en WhatsApp que atienda consultas 24/7, confirme citas automáticas y solo te avise cuando necesites intervención real.\n\nAsí no pierden ni un paciente por no responder a tiempo ✓\n\n¿15 min esta semana para que lo veas funcionando?",
+  "script_llamada": "# GUIÓN DE COLD CALL — Centre Dental Vilanova\n**Agencia: MerakIA | Duración objetivo: 90 segundos**\n\n---\n\n## 🟢 APERTURA (0-10 seg)\n*Presentación + prueba de que has hecho los deberes*\n\n> \"Hola, buenos días, ¿hablo con el Centre Dental Vilanova?\n> Perfecto. Soy [NOMBRE], de MerakIA. Os llamo porque he estado mirando vuestra clínica antes de llamar — tenéis un 4.8 en Google, que para una clínica dental en Vilanova es muy bueno — y me ha surgido una pregunta concreta. ¿Me puedes dedicar 40 segundos?\"\n\n---\n\n## 🎣 GANCHO (10-30 seg)\n*El problema y lo que les cuesta en términos concretos*\n\n> \"Bien, gracias. Lo que hemos detectado es esto: clínicas con vuestra reputación y ese rating reciben consultas por WhatsApp también por las tardes, los fines de semana, fuera de horario. Y si en ese momento no hay nadie para responder, ese paciente no espera — busca la siguiente clínica que aparece en Google.\n> Con un 4.8 estáis atrayendo demanda real. La pregunta es cuánta de esa demanda se está yendo sin que vosotros lo sepáis.\"\n\n---\n\n## ❓ CUALIFICACIÓN (30-60 seg)\n*Confirmar que el dolor es real antes de proponer nada*\n\n> \"Rápido, dos preguntas:\n>\n> **Primera:** ¿Cómo gestionáis ahora mismo las consultas que llegan fuera del horario de atención — hay alguien revisando el WhatsApp por las tardes o los fines de semana?\n>\n> *(Escuchar y tomar nota)*\n>\n> **Segunda:** ¿Tenéis idea, aunque sea aproximada, de cuántas consultas nuevas entran a la semana por WhatsApp o por el chat de la web?\"\n\n*(Si responde que no lo saben exactamente → perfecto, eso ya es suficiente para continuar)*\n\n---\n\n## 💡 PROPUESTA (60-80 seg)\n*Una frase. Solución concreta + resultado esperado*\n\n> \"Pues justamente en eso trabajamos en MerakIA. Lo que hacemos es implementar un asistente de IA en vuestro WhatsApp y web que responde al instante — a las 11 de la noche, un domingo, cuando queráis — que cualifica al paciente, resuelve sus dudas básicas y, si está listo, le agenda la cita directamente en vuestra agenda.\n>\n> Clínicas similares con las que trabajamos han dejado de perder entre 20 y 30 consultas al mes que antes simplemente no existían para ellos.\"\n\n---\n\n## 📅 CIERRE (80-90 seg)\n*Pedir la reunión. Específico, sin rodeos*\n\n> \"No os pido nada ahora mismo. Solo una videollamada de 20 minutos esta semana o la que viene, donde os enseño exactamente cómo funciona aplicado a una clínica como la vuestra — con números reales.\n>\n> ¿Tienes hueco el martes o el jueves por la mañana?\"\n\n---\n\n## 🛡️ MANEJO DE OBJECIONES\n\n---\n\n### ❌ \"No me interesa\"\n\n> \"Entiendo, no te quiero convencer de nada. Solo curiosidad: ¿es porque ya tenéis algo cubriendo las consultas fuera de horario, o más bien porque ahora mismo no es prioridad?\"\n\n*(La respuesta te dirá exactamente dónde está el bloqueo real)*\n\n---\n\n### ❌ \"Ya tenemos alguien para eso\"\n\n> \"Perfecto, me alegra saberlo. ¿Estáis usando alguna herramienta de IA o es atención humana? Lo pregunto porque a veces conviven las dos cosas y se complementan bien — y si ya lo tenéis cubierto al 100%, no tiene sentido que hablemos.\"\n\n*(Si es humano → la IA no compite, cubre los huecos. Si es otra herramienta → puedes preguntar con qué resultados)*\n\n---\n\n### ❌ \"Ahora no es buen momento\"\n\n> \"Sin problema, lo entiendo perfectamente. ¿Puedo preguntarte cuándo sería mejor momento? No quiero perderte el hilo — si me dices una fecha, me apunto y te llamo entonces, sin agobios.\"\n\n*(Comprométete a una fecha concreta. Si no da ninguna → pide permiso para escribir por WhatsApp)*\n\n---\n\n### ❌ \"¿Cuánto cuesta?\"\n\n> \"Buena pregunta, y te lo cuento con mucho gusto — pero honestamente depende de cómo está montada vuestra operativa ahora mismo, cuántos canales queréis cubrir... No quiero darte un número genérico que no tenga sentido para vosotros. Por eso propongo los 20 minutos: veo vuestro caso, y te doy un número real. ¿Te parece bien?\"\n\n---\n\n## 📋 NOTAS DE USO\n\n| Elemento | Detalle |\n|---|---|\n| **Mejor horario de llamada** | Martes a jueves, 9:30-11:30h o 16:00-17:30h |\n| **Persona objetivo** | Director/a o responsable de gestión (no la recepcionista) |\n| **Tono** | Nunca vendedor. Curioso, directo, de igual a igual |\n| **Si no cogen** | Dejar mensaje de voz de máximo 20 segundos con el gancho |\n| **Seguimiento** | Si no hay respuesta → email + LinkedIn a las 48h |\n\n---\n\n> 💬 **Regla de oro del guión:** Hablas el 40%, escuchas el 60%. Las preguntas de cualificación no son trámite — son la conversación real."
+}
