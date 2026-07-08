@@ -4,12 +4,18 @@ Lanzar:
     venv\\Scripts\\streamlit.exe run polymarket-bot/dashboard/app.py --server.port 8507
 """
 import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bot.sweep import compute_sweep_curve  # noqa: E402
+
 DB = Path(__file__).resolve().parents[1] / "paper_trades.db"
+BANKROLL_START = 1000.0
+SWEEP_FRACTION = 0.5
 
 st.set_page_config(page_title="Polymarket Bot — Paper", page_icon="🎲", layout="wide")
 st.title("🎲 Polymarket BTC Up/Down — Paper Trading")
@@ -43,6 +49,31 @@ if total_resolved:
     curve = resolved.sort_values("resolved_ts").copy()
     curve["equity"] = curve["pnl"].cumsum()
     st.line_chart(curve.set_index("resolved_ts")["equity"])
+
+    st.subheader("🔒 Simulación: barrido de beneficios en máximos (modo sombra)")
+    st.caption(
+        f"Política candidata para la fase real (aún NO aplicada al bot): capital "
+        f"fijo de ${BANKROLL_START:,.0f} + barrido del {SWEEP_FRACTION:.0%} de cada "
+        f"ganancia nueva cada vez que se marca un máximo histórico, a una reserva "
+        f"que ya no vuelve a arriesgarse. Calculado aquí sobre el histórico real "
+        f"de operaciones, sin tocar el bankroll ni el sizing del bot."
+    )
+    sweep_rows = resolved.sort_values("resolved_ts")[["resolved_ts", "pnl"]].values.tolist()
+    sweep_curve = compute_sweep_curve(
+        [(ts.timestamp(), pnl) for ts, pnl in sweep_rows], BANKROLL_START, SWEEP_FRACTION
+    )
+    last = sweep_curve[-1]
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Capital expuesto (con barrido)", f"${last.equity_exposed:,.2f}")
+    s2.metric("Reserva asegurada", f"${last.reserve:,.2f}")
+    s3.metric("Total real (expuesto + reserva)", f"${last.equity_exposed + last.reserve:,.2f}")
+    sweep_df = pd.DataFrame({
+        "resolved_ts": [pd.Timestamp.fromtimestamp(p.resolved_ts) for p in sweep_curve],
+        "Equity libre (sin barrido)": [p.equity_free for p in sweep_curve],
+        "Capital expuesto (con barrido)": [p.equity_exposed for p in sweep_curve],
+        "Reserva asegurada": [p.reserve for p in sweep_curve],
+    }).set_index("resolved_ts")
+    st.line_chart(sweep_df)
 
     st.subheader("Calidad del modelo")
     col1, col2 = st.columns(2)

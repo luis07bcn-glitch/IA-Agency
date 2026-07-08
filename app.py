@@ -69,7 +69,7 @@ with st.sidebar:
         "📣 Contenido & Marketing", "🤖 Chatbot Specialist", "🎙️ Agente de Voz",
         "🔔 Recordatorios & Fidelización", "⭐ Gestor de Reseñas", "📅 Content Engine",
         "📄 Generador de PDFs", "⚡ Agente Autónomo", "🎬 VideoStudio",
-        "🚀 Pipeline Completo", "🎯 ProspectorIA", "📊 Base de Datos",
+        "🚀 Pipeline Completo", "🎯 ProspectorIA", "🏛️ Gestorías", "📊 Base de Datos",
     ]
     # Navegación programática: si un botón del Dashboard pidió ir a otra página,
     # aplicarlo ANTES de instanciar el radio (Streamlit lo permite vía session_state).
@@ -3707,6 +3707,301 @@ elif page == "🎯 ProspectorIA":
                 else:
                     st.session_state[k] = ""
             st.rerun()
+
+
+# ─── Gestorías (nicho back-office) ─────────────────────────────────────────────
+elif page == "🏛️ Gestorías":
+    import pandas as pd
+    import json as _json
+    from pathlib import Path as _Path
+    import generar_prospectos_gestorias as gest
+    from config.settings import settings
+
+    st.markdown("""<style>
+    .chip { display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;margin:2px; }
+    .chip-alta  { background:rgba(239,68,68,.15);color:#ef4444;border:1px solid #ef4444; }
+    .chip-media { background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid #f59e0b; }
+    .chip-baja  { background:rgba(16,185,129,.15);color:#10b981;border:1px solid #10b981; }
+    </style>""", unsafe_allow_html=True)
+
+    st.markdown('<div class="merakia-header">🏛️ Gestorías & Asesorías</div>',
+                unsafe_allow_html=True)
+    st.caption("Nicho de back-office: vendemos horas recuperadas (automatizar papeleo), "
+               "no marketing. Listado propio con scoring distinto al de ProspectorIA.")
+    st.divider()
+
+    JSON_PATH = _Path("outputs/prospector/prospectos_gestorias_vng.json")
+    PLAYBOOK = _Path("docs/prospeccion_gestorias_playbook.md")
+
+    # ── Aviso de enfoque (para no confundir con ProspectorIA) ─────────────────
+    st.info(
+        "**Ojo — aquí el buen prospecto es el contrario que en ProspectorIA.** "
+        "Allí premiamos el dolor digital visible (sin web, mala reputación) porque "
+        "vendemos marketing. Aquí premiamos al despacho **establecido y grande** "
+        "(mucha reseña = mucha clientela = mucho papeleo = mucha saturación), que "
+        "es a quien le vendemos automatizar el back-office.",
+        icon="🧭",
+    )
+
+    # ── Configuración / regenerar ─────────────────────────────────────────────
+    with st.expander("⚙️ Configuración y regeneración del listado", expanded=False):
+        gkey = st.text_input(
+            "Google Places API Key",
+            value=settings.google_places_api_key or (gest.load_key() or ""),
+            type="password",
+            help="Solo hace falta para regenerar el listado. El listado ya guardado se lee sin key.",
+        )
+        col_z1, col_z2 = st.columns(2)
+        with col_z1:
+            ciudad_foco = st.text_input(
+                "Ciudad foco (va primero en el ranking)",
+                value="Vilanova i la Geltrú",
+                key="gest_ciudad_foco",
+            )
+        with col_z2:
+            limite_gest = st.number_input("Máx. prospectos", 10, 60, 40, 5, key="gest_limite")
+
+        queries_txt = st.text_area(
+            "Búsquedas (una por línea)",
+            value="\n".join(gest.DEFAULT_QUERIES),
+            height=160,
+            key="gest_queries",
+            help="Edita para cambiar de zona o tipo de despacho.",
+        )
+
+        if st.button("🔄 Regenerar listado (consume API)", type="primary", key="gest_regen"):
+            key = gkey.strip() or gest.load_key()
+            if not key:
+                st.error("Falta la API Key de Google Places.")
+            else:
+                queries = [q.strip() for q in queries_txt.splitlines() if q.strip()]
+                foco = (ciudad_foco or "Vilanova i la Geltr").replace("ú", "").strip() or "Vilanova i la Geltr"
+                log_box = st.empty()
+                logs = []
+
+                def _log(msg):
+                    logs.append(str(msg))
+                    log_box.code("\n".join(logs[-12:]))
+
+                try:
+                    with st.spinner("Buscando en Google Places..."):
+                        prospectos = gest.recopilar(
+                            key=key, queries=queries, ciudad_foco=foco,
+                            limite=int(limite_gest), log=_log,
+                        )
+                        gest.guardar(prospectos)
+                    st.success(f"✅ {len(prospectos)} prospectos regenerados y guardados.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ {e}")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # DEMO EN VIVO — Lector de facturas (el "producto" que vendemos)
+    # ══════════════════════════════════════════════════════════════════════════
+    st.subheader("🔎 Demo en vivo — Lector de facturas")
+    st.caption("Esto es lo que vendes: sube facturas (PDF o foto) y mira cómo se "
+               "leen solas. La máquina extrae, marca lo dudoso, y el humano valida.")
+
+    up = st.file_uploader(
+        "Sube una o varias facturas",
+        type=["png", "jpg", "jpeg", "webp", "pdf"],
+        accept_multiple_files=True,
+        key="gest_facturas_up",
+    )
+    col_d1, col_d2 = st.columns([1, 3])
+    with col_d1:
+        usar_muestra = st.button("📄 Usar factura de ejemplo", key="gest_demo_muestra")
+    with col_d2:
+        leer = st.button("🚀 Leer facturas →", type="primary",
+                         disabled=not up, key="gest_demo_leer")
+
+    # Construir la lista de (nombre, bytes) a procesar
+    a_procesar = []
+    if leer and up:
+        a_procesar = [(f.name, f.getvalue()) for f in up]
+    elif usar_muestra:
+        muestra = _Path("gestorias/demo_facturas/factura_muestra.png")
+        if muestra.exists():
+            a_procesar = [(muestra.name, muestra.read_bytes())]
+        else:
+            st.error("No encuentro la factura de ejemplo. Genérala con "
+                     "`gestorias/_generar_factura_muestra.py`.")
+
+    if a_procesar:
+        try:
+            from gestorias.extractor_facturas import (
+                extraer_factura_bytes, png_preview_bytes, a_csv, SCHEMA,
+            )
+            import anthropic as _anthropic
+
+            client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
+            filas = []
+            prog = st.progress(0.0, text="Leyendo facturas...")
+            for i, (nombre, data_bytes) in enumerate(a_procesar):
+                prog.progress(i / len(a_procesar), text=f"Leyendo {nombre}...")
+                try:
+                    res = extraer_factura_bytes(data_bytes, nombre, client)
+                except Exception as e:
+                    res = {"_archivo": nombre, "_error": str(e)}
+                filas.append((nombre, data_bytes, res))
+            prog.progress(1.0, text="Hecho.")
+            prog.empty()
+
+            _ETIQUETAS = {
+                "emisor_nombre": "Emisor", "emisor_cif": "CIF emisor",
+                "cliente_nombre": "Cliente", "cliente_cif": "CIF cliente",
+                "numero_factura": "Nº factura", "fecha": "Fecha",
+                "fecha_vencimiento": "Vencimiento", "base_imponible": "Base imponible",
+                "tipo_iva": "Tipo IVA %", "cuota_iva": "Cuota IVA",
+                "retencion_irpf": "Retención IRPF", "total": "TOTAL", "moneda": "Moneda",
+            }
+
+            for nombre, data_bytes, res in filas:
+                st.divider()
+                col_img, col_dat = st.columns([1, 1.3])
+                with col_img:
+                    try:
+                        st.image(png_preview_bytes(data_bytes, nombre),
+                                 caption=nombre, use_container_width=True)
+                    except Exception:
+                        st.caption(f"({nombre} — sin previsualización)")
+                with col_dat:
+                    if res.get("_error"):
+                        st.error(f"No se pudo leer: {res['_error']}")
+                        continue
+                    conf = res.get("_confianza")
+                    color = "chip-baja" if (conf or 0) >= 85 else "chip-media" if (conf or 0) >= 60 else "chip-alta"
+                    st.markdown(f'<span class="chip {color}">Confianza {conf}%</span>',
+                                unsafe_allow_html=True)
+                    filas_tab = [{"Campo": _ETIQUETAS.get(k, k), "Valor": res.get(k)}
+                                 for k in SCHEMA.keys()]
+                    st.dataframe(pd.DataFrame(filas_tab), hide_index=True,
+                                 use_container_width=True)
+                    avisos = res.get("_avisos") or []
+                    if avisos:
+                        st.warning("**⚠️ Revisar (el humano valida esto):**\n\n"
+                                   + "\n".join(f"- {a}" for a in avisos))
+                    else:
+                        st.success("Sin avisos: lectura limpia.")
+
+            # CSV combinado listo para importar/revisar
+            solo_datos = [r for _, _, r in filas if not r.get("_error")]
+            if solo_datos:
+                import tempfile as _tmp
+                tmp_csv = _Path(_tmp.gettempdir()) / "facturas_extraidas.csv"
+                a_csv(solo_datos, tmp_csv)
+                st.download_button(
+                    "⬇️ Descargar CSV (listo para el programa de gestión)",
+                    data=tmp_csv.read_bytes(),
+                    file_name="facturas_extraidas.csv",
+                    mime="text/csv",
+                )
+        except Exception as e:
+            st.error(f"Error en la demo: {e}")
+
+    st.divider()
+
+    # ── Cargar listado guardado ───────────────────────────────────────────────
+    st.subheader("📇 Listado de prospectos")
+    if not JSON_PATH.exists():
+        st.warning(
+            "Aún no hay listado generado. Abre **⚙️ Configuración** arriba y pulsa "
+            "**Regenerar listado**.",
+            icon="📭",
+        )
+        st.stop()
+
+    data = _json.loads(JSON_PATH.read_text(encoding="utf-8"))
+    df = pd.DataFrame(data)
+
+    # ── KPIs ──────────────────────────────────────────────────────────────────
+    total = len(df)
+    icp1 = int((df["tipo"] == "gestoria/asesoria").sum())
+    con_web = int((df["web"].astype(str).str.len() > 0).sum())
+    con_tel = int((df["telefono"].astype(str).str.len() > 0).sum())
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Prospectos", total)
+    c2.metric("ICP primario", icp1, help="Gestoría/asesoría fiscal-laboral (el resto es secundario)")
+    c3.metric("Con web (email localizable)", con_web)
+    c4.metric("Con teléfono", con_tel)
+
+    st.divider()
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
+    with col_f1:
+        tipos = ["(todos)"] + sorted(df["tipo"].dropna().unique().tolist())
+        f_tipo = st.selectbox("Tipo", tipos, index=(tipos.index("gestoria/asesoria")
+                              if "gestoria/asesoria" in tipos else 0), key="gest_f_tipo")
+    with col_f2:
+        f_texto = st.text_input("Buscar por nombre", key="gest_f_texto", placeholder="Ej: assessors")
+    with col_f3:
+        solo_foco = st.checkbox("Solo ciudad foco", value=True, key="gest_f_foco")
+
+    view = df.copy()
+    if f_tipo != "(todos)":
+        view = view[view["tipo"] == f_tipo]
+    if solo_foco and "en_foco" in view.columns:
+        view = view[view["en_foco"] == True]  # noqa: E712
+    if f_texto.strip():
+        view = view[view["nombre"].str.contains(f_texto.strip(), case=False, na=False)]
+
+    view = view.sort_values("score_prospecto", ascending=False).reset_index(drop=True)
+
+    st.caption(f"Mostrando **{len(view)}** de {total} prospectos.")
+
+    # ── Top 10 listos para contactar ──────────────────────────────────────────
+    st.subheader("🎯 Top para contactar esta semana")
+    st.caption("Máx. 10 por semana con personalización real (ver playbook). "
+               "Copia el email/teléfono y escribe desde tu cuenta.")
+
+    top = view.head(10)
+    for _, row in top.iterrows():
+        web = str(row.get("web") or "")
+        tel = str(row.get("telefono") or "")
+        maps = str(row.get("maps") or "")
+        rating = row.get("rating")
+        resenas = row.get("resenas")
+        links = []
+        if web:
+            links.append(f'<a href="{web}" target="_blank">🌐 Web</a>')
+        if maps:
+            links.append(f'<a href="{maps}" target="_blank">📍 Maps</a>')
+        links_html = " &nbsp;·&nbsp; ".join(links)
+        st.markdown(f"""
+        <div class="result-box" style="margin-bottom:8px">
+          <b>{row['nombre']}</b>
+          <span class="chip chip-baja">score {int(row['score_prospecto'])}</span>
+          <span class="chip" style="background:rgba(255,255,255,.06);color:#94A3B8;border:1px solid rgba(255,255,255,.1)">{row['tipo']}</span>
+          <br>
+          <small style="color:#94A3B8">
+            ⭐ {rating if rating is not None else '—'} ({resenas} reseñas)
+            &nbsp;·&nbsp; ☎️ {tel or '—'} &nbsp;·&nbsp; {links_html}
+          </small>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Tabla completa + descarga ─────────────────────────────────────────────
+    st.subheader("📋 Listado completo")
+    cols_show = ["nombre", "tipo", "telefono", "web", "rating", "resenas",
+                 "score_prospecto", "en_foco", "motivos"]
+    cols_show = [c for c in cols_show if c in view.columns]
+    st.dataframe(view[cols_show], use_container_width=True, hide_index=True)
+
+    csv_bytes = view[cols_show].to_csv(index=False, sep=";").encode("utf-8-sig")
+    st.download_button(
+        "⬇️ Descargar CSV filtrado",
+        data=csv_bytes,
+        file_name="gestorias_filtrado.csv",
+        mime="text/csv",
+    )
+
+    # ── Playbook ──────────────────────────────────────────────────────────────
+    if PLAYBOOK.exists():
+        with st.expander("📖 Playbook de contacto (emails, guion de llamada, objeciones)"):
+            st.markdown(PLAYBOOK.read_text(encoding="utf-8"))
 
 
 # ─── Base de Datos ─────────────────────────────────────────────────────────────
