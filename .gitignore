@@ -74,3 +74,6 @@ node_modules/
 
 # merakia-web tiene su propio repo git independiente — no trackear aquí
 merakia-web/
+
+# Assets personales (repo es publico — no subir fotos/datos privados)
+assets/

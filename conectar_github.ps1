@@ -5,7 +5,7 @@
 # ============================================================
 
 $ErrorActionPreference = "Stop"
-$web = "C:\Users\luis0\Documents\IA-Agency\merakia-web"
+$web = Join-Path $PSScriptRoot "merakia-web"
 
 # Asegurar gh en el PATH
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

@@ -7,7 +7,7 @@
 # ============================================================
 
 $ErrorActionPreference = "Stop"
-$web = "C:\Users\luis0\Documents\IA-Agency\merakia-web"
+$web = Join-Path $PSScriptRoot "merakia-web"
 Set-Location $web
 
 # Asegurar vercel en PATH

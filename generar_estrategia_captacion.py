@@ -129,7 +129,7 @@ def build():
     story.append(Spacer(1, 0.6*cm))
 
     # Foto del fundador centrada
-    foto_path = r"C:\Users\luis0\OneDrive\Desktop\foto Luis IA.jpg"
+    foto_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "foto Luis IA.jpg")
     if os.path.exists(foto_path):
         # Calcular dimensiones para recorte circular-ish: foto cuadrada centrada
         foto_w = 6.5 * cm
