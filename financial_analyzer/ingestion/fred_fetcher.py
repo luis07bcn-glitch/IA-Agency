@@ -27,6 +27,11 @@ FRED_SERIES = {
     "VIX":            ("VIXCLS",      "VIX (índice miedo)"),
 
     # Mercado laboral US
+    "NFP":            ("PAYEMS",      "Nonfarm Payrolls — empleo total no agricola (miles)"),
+    "NFP_PRIVATE":    ("USPRIV",      "Nonfarm Payrolls sector privado (miles)"),
+    "NFP_MFG":        ("MANEMP",      "Empleo manufacturero EEUU (miles)"),
+    "AVG_HOURLY_EARN":("CES0500000003","Salario medio por hora EEUU ($)"),
+    "AVG_WEEKLY_HRS": ("AWHAETP",     "Horas semanales medias trabajadas"),
     "INITIAL_CLAIMS": ("ICSA",        "Initial Jobless Claims (miles)"),
     "JOLTS":          ("JTSJOL",      "JOLTS Job Openings (miles)"),
     "UNEMPLOYMENT_US":("UNRATE",      "Tasa paro EEUU (%)"),
@@ -84,11 +89,12 @@ FRED_SERIES = {
     "SAVING_RATE":    ("PSAVERT",     "Tasa de ahorro personal (%)"),
     "DEBT_SERVICE":   ("TDSP",        "Servicio deuda hogares (% renta disponible)"),
     "MORTGAGE_RATE":  ("MORTGAGE30US","Tipo hipotecario 30 años fijo (%)"),
+    # Nota: AUTO_DELINQ (impagos auto) no disponible via FRED API — dato del NY Fed solo en web
 
     # SLOOS — Condiciones de credito bancario (Senior Loan Officer Opinion Survey)
-    "SLOOS_CI":       ("STDSAUTO",        "SLOOS: bancos endureciendo credito auto (% neto)"),
-    "SLOOS_CC":       ("DRTSCILM",        "SLOOS: bancos endureciendo tarjetas (% neto)"),
-    "SLOOS_BUSINESS": ("DRTSCLNOBSMISNS", "SLOOS: bancos endureciendo credito empresas C&I (% neto)"),
+    "SLOOS_CI":       ("STDSAUTO",  "SLOOS: bancos endureciendo credito auto (% neto)"),
+    "SLOOS_CC":       ("DRTSCILM",  "SLOOS: bancos endureciendo tarjetas (% neto)"),
+    "SLOOS_BUSINESS": ("DRTSCILM",  "SLOOS: bancos endureciendo credito C&I grandes empresas (% neto)"),
 }
 
 
@@ -164,6 +170,11 @@ def _estimate_lag(name: str) -> int:
         "RETAIL_SALES": 30,
         "INDPRO": 30,
         "PERMIT": 30,
+        "NFP":            30,
+        "NFP_PRIVATE":    30,
+        "NFP_MFG":        30,
+        "AVG_HOURLY_EARN":30,
+        "AVG_WEEKLY_HRS": 30,
         "CONT_CLAIMS": 5,
         "CAPACITY_UTIL": 30,
         "USREC": 90,

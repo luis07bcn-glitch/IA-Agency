@@ -2202,6 +2202,206 @@ elif "Adelantados" in page:
             st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
+        # ── NFP — Panel destacado ──────────────────────────────
+        st.subheader("Nonfarm Payrolls (NFP) — Empleo no agricola EEUU")
+        st.caption("El dato de empleo mas importante del mundo: se publica el primer viernes de cada mes a las 14:30 ET.")
+
+        _nfp_df      = get_series("NFP",         start=str(start_date))
+        _nfp_priv_df = get_series("NFP_PRIVATE",  start=str(start_date))
+        _earn_df     = get_series("AVG_HOURLY_EARN", start=str(start_date))
+
+        if not _nfp_df.empty:
+            # Calcular variacion mensual
+            _nfp_sorted   = _nfp_df.sort_values("date").copy()
+            _nfp_sorted["monthly_change"] = _nfp_sorted["value"].diff()
+            _nfp_chg = _nfp_sorted.dropna(subset=["monthly_change"]).tail(12)
+
+            # Ultimos 3 datos para KPIs
+            _last3 = _nfp_chg.tail(3)
+            _latest_nfp   = _last3.iloc[-1]["monthly_change"] if len(_last3) >= 1 else None
+            _prev_nfp     = _last3.iloc[-2]["monthly_change"] if len(_last3) >= 2 else None
+            _prev2_nfp    = _last3.iloc[-3]["monthly_change"] if len(_last3) >= 3 else None
+            _latest_date  = str(_last3.iloc[-1]["date"])[:7] if len(_last3) >= 1 else "—"
+            _prev_date    = str(_last3.iloc[-2]["date"])[:7] if len(_last3) >= 2 else "—"
+            _prev2_date   = str(_last3.iloc[-3]["date"])[:7] if len(_last3) >= 3 else "—"
+
+            # Consenso hardcoded por fecha (se puede actualizar manualmente)
+            # Formato: "YYYY-MM": consenso_en_K
+            NFP_CONSENSUS = {
+                "2026-06": 160,
+                "2026-05": 185,
+                "2026-04": 138,
+                "2026-03": 140,
+            }
+            _cons_latest = NFP_CONSENSUS.get(_latest_date)
+            _surprise    = (_latest_nfp - _cons_latest) if (_latest_nfp and _cons_latest) else None
+
+            # Alerta si miss grande
+            if _surprise is not None and _surprise < -50:
+                st.error(
+                    f"MISS IMPORTANTE — NFP {_latest_date}: {_latest_nfp:+.0f}K vs consenso {_cons_latest:+.0f}K "
+                    f"(sorpresa: {_surprise:+.0f}K). Dato muy por debajo de lo esperado — señal de desaceleracion del mercado laboral."
+                )
+            elif _surprise is not None and _surprise > 50:
+                st.success(
+                    f"BEAT IMPORTANTE — NFP {_latest_date}: {_latest_nfp:+.0f}K vs consenso {_cons_latest:+.0f}K "
+                    f"(sorpresa: {_surprise:+.0f}K). Mercado laboral mas fuerte de lo esperado."
+                )
+
+            # KPIs
+            _nk1, _nk2, _nk3, _nk4, _nk5 = st.columns(5)
+            _nk1.metric(
+                f"NFP {_latest_date}",
+                f"{_latest_nfp:+.0f}K" if _latest_nfp else "N/D",
+                delta=f"vs consenso {_surprise:+.0f}K" if _surprise else None,
+                delta_color="normal" if (_surprise or 0) >= 0 else "inverse",
+                help="Puestos de trabajo creados. Consenso ~150-200K = mercado laboral sano"
+            )
+            _nk2.metric(f"NFP {_prev_date}",   f"{_prev_nfp:+.0f}K"  if _prev_nfp  else "N/D")
+            _nk3.metric(f"NFP {_prev2_date}",  f"{_prev2_nfp:+.0f}K" if _prev2_nfp else "N/D")
+
+            _unrate_val, _ = get_latest_value("UNEMPLOYMENT_US")
+            _nk4.metric("Tasa paro", f"{_unrate_val:.1f}%" if _unrate_val else "N/D",
+                        help="<4% = mercado laboral tenso | >5% = holgura | >6% = deterioro")
+
+            # Salario por hora YoY
+            if not _earn_df.empty and len(_earn_df) >= 13:
+                _earn_s  = _earn_df.sort_values("date")
+                _earn_now = _earn_s["value"].iloc[-1]
+                _earn_ago = _earn_s["value"].iloc[-13]
+                _earn_yoy = ((_earn_now / _earn_ago) - 1) * 100
+                _nk5.metric("Salario/hora YoY", f"{_earn_yoy:.1f}%",
+                            help=">4% = presion salarial inflacionaria | 2-3.5% = zona Fed objetivo")
+            else:
+                _nk5.metric("Salario/hora", "N/D")
+
+            st.divider()
+
+            # Gráfico barras NFP mensual (12 meses) + línea consenso promedio
+            _nfp_col, _nfp_detail = st.columns([3, 2])
+            with _nfp_col:
+                _bar_colors = ["#2ecc71" if v >= 150 else ("#f39c12" if v >= 100 else "#e74c3c")
+                               for v in _nfp_chg["monthly_change"]]
+                _fig_nfp = go.Figure()
+                _fig_nfp.add_trace(go.Bar(
+                    x=_nfp_chg["date"].astype(str).str[:7],
+                    y=_nfp_chg["monthly_change"],
+                    marker_color=_bar_colors,
+                    text=[f"{v:+.0f}K" for v in _nfp_chg["monthly_change"]],
+                    textposition="outside",
+                    name="NFP mensual"
+                ))
+                # Línea de referencia: promedio pre-pandemia y zona "sana"
+                _avg_12m = _nfp_chg["monthly_change"].mean()
+                _fig_nfp.add_hline(y=150, line_dash="dash", line_color="#2ecc71", opacity=0.5,
+                                   annotation_text="Zona sana (150K)")
+                _fig_nfp.add_hline(y=_avg_12m, line_dash="dot", line_color="#3498db", opacity=0.6,
+                                   annotation_text=f"Media 12M ({_avg_12m:.0f}K)")
+                _fig_nfp.add_hline(y=0, line_color="white", opacity=0.3)
+
+                # Marcar consenso donde disponible
+                for _cm, _cv in NFP_CONSENSUS.items():
+                    _cm_matches = _nfp_chg[_nfp_chg["date"].astype(str).str.startswith(_cm)]
+                    if not _cm_matches.empty:
+                        _fig_nfp.add_scatter(
+                            x=[_cm], y=[_cv], mode="markers",
+                            marker=dict(symbol="diamond", size=10, color="white"),
+                            name=f"Consenso {_cm}", showlegend=False
+                        )
+
+                _fig_nfp.update_layout(
+                    title="Nonfarm Payrolls — variacion mensual (miles puestos) | Verde=diamante=consenso",
+                    yaxis=dict(title="Miles de puestos"),
+                    paper_bgcolor="rgba(0,0,0,0)", font_color="white",
+                    height=380, margin=dict(t=50, b=20), showlegend=False
+                )
+                _fig_nfp.add_annotation(
+                    text="Diamante blanco = consenso de mercado", xref="paper", yref="paper",
+                    x=0.01, y=0.01, showarrow=False, font=dict(size=10, color="#888")
+                )
+                st.plotly_chart(_fig_nfp, use_container_width=True)
+
+            with _nfp_detail:
+                st.markdown("**Interpretacion del ultimo NFP**")
+                if _latest_nfp is not None:
+                    if _latest_nfp >= 200:
+                        _nfp_interp = ("Dato MUY FUERTE. Mercado laboral en pleno empleo. "
+                                       "La Fed no tiene prisa por bajar tipos — presion sobre bonos.")
+                        _nfp_col2 = "#2ecc71"
+                    elif _latest_nfp >= 150:
+                        _nfp_interp = ("Dato SOLIDO. Creacion de empleo saludable. "
+                                       "Economia aguanta sin señales de recesion inminente.")
+                        _nfp_col2 = "#27ae60"
+                    elif _latest_nfp >= 100:
+                        _nfp_interp = ("Dato MODERADO. El ritmo se desacelera. "
+                                       "La Fed puede interpretar esto como señal para pausar o bajar tipos.")
+                        _nfp_col2 = "#f39c12"
+                    elif _latest_nfp >= 0:
+                        _nfp_interp = ("Dato DEBIL. Creacion de empleo muy por debajo del nivel necesario "
+                                       "para absorber nuevos entrantes. Mercado laboral enfriandose.")
+                        _nfp_col2 = "#e67e22"
+                    else:
+                        _nfp_interp = ("DESTRUCCION de empleo. Señal recesiva clara. "
+                                       "La Fed tendra presion para recortar tipos agresivamente.")
+                        _nfp_col2 = "#e74c3c"
+
+                    st.markdown(
+                        f'<div style="background:{_nfp_col2}22;border-left:4px solid {_nfp_col2};'
+                        f'padding:12px;border-radius:6px">'
+                        f'<div style="color:{_nfp_col2};font-weight:bold;font-size:1.1rem">'
+                        f'{_latest_nfp:+.0f}K puestos — {_latest_date}</div>'
+                        f'<div style="color:#ccc;font-size:0.88rem;margin-top:6px">{_nfp_interp}</div>'
+                        f'</div>', unsafe_allow_html=True
+                    )
+
+                    if _surprise is not None:
+                        st.markdown(f"""
+**Sorpresa vs consenso:** {_surprise:+.0f}K
+
+**Lo que esto significa para los mercados:**
+- {"Presion sobre la Fed para recortar tipos anticipadamente." if _surprise < -50 else "La Fed puede mantener tipos sin urgencia." if _surprise > 50 else "Dato en linea con expectativas, impacto neutro."}
+- {"Bonos: rally probable (tipos bajos esperados)." if _surprise < -50 else "Bonos: posible venta (menos recortes descontados)." if _surprise > 50 else "Bonos: reaccion moderada."}
+- {"Bolsa: reaccion mixta — malo para earnings pero bueno si anticipa Fed pivot." if _surprise < -50 else "Bolsa: positivo para sectores ciclicos." if _surprise > 50 else ""}
+- {"DXY: posible debilitamiento si el mercado descuenta recortes." if _surprise < -50 else "DXY: posible fortalecimiento." if _surprise > 50 else ""}
+                        """)
+                else:
+                    st.info("Actualiza los datos para ver el ultimo NFP.")
+
+            # Gráfico secundario: NFP total + privado superpuesto
+            if not _nfp_priv_df.empty:
+                _nfp_priv_s  = _nfp_priv_df.sort_values("date").copy()
+                _nfp_priv_s["monthly_change"] = _nfp_priv_s["value"].diff()
+                _priv_chg = _nfp_priv_s.dropna(subset=["monthly_change"]).tail(12)
+
+                _fig_split = go.Figure()
+                _fig_split.add_trace(go.Scatter(
+                    x=_nfp_chg["date"].astype(str).str[:7],
+                    y=_nfp_chg["monthly_change"],
+                    name="NFP Total", line=dict(color="#3498db", width=2)
+                ))
+                _fig_split.add_trace(go.Scatter(
+                    x=_priv_chg["date"].astype(str).str[:7],
+                    y=_priv_chg["monthly_change"],
+                    name="NFP Sector Privado", line=dict(color="#2ecc71", width=2, dash="dot")
+                ))
+                _fig_split.add_hline(y=0, line_color="white", opacity=0.3)
+                _fig_split.update_layout(
+                    title="NFP Total vs Sector Privado — la diferencia revela el peso del empleo publico",
+                    yaxis=dict(title="Miles puestos/mes"),
+                    paper_bgcolor="rgba(0,0,0,0)", font_color="white",
+                    height=300, legend=dict(orientation="h"), margin=dict(t=40)
+                )
+                st.plotly_chart(_fig_split, use_container_width=True)
+                st.caption(
+                    "Si el Total supera al Privado, el empleo publico esta sosteniendo el dato — "
+                    "señal de que el sector privado real esta mas debil de lo que parece."
+                )
+        else:
+            st.info("Actualiza los datos para cargar NFP (Nonfarm Payrolls).")
+
+        st.divider()
+
+        # ── Resto del mercado laboral ──────────────────────────
         col1, col2 = st.columns(2)
         with col1:
             fig = chart_rec(get_series("INITIAL_CLAIMS", start=str(start_date)),
