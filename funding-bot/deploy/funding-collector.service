@@ -1,0 +1,17 @@
+[Unit]
+Description=Recolector de funding rates de Kraken (cash-and-carry, sensor de regimen)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=merakia
+WorkingDirectory=/opt/merakia/funding-bot
+Environment=TZ=Europe/Madrid
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/merakia/venv/bin/python collector.py --interval 300
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
