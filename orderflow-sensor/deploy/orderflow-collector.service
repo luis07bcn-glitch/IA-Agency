@@ -1,0 +1,17 @@
+[Unit]
+Description=Sensor de order flow de Kraken spot (BTC/EUR, Fase 0)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=merakia
+WorkingDirectory=/opt/merakia/orderflow-sensor
+Environment=TZ=Europe/Madrid
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/merakia/venv/bin/python collector.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
