@@ -2,10 +2,29 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "merakia-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd merakia-web && pnpm dev --port 3860"],
+      "port": 3860
+    },
+    {
       "name": "merakia-app",
       "runtimeExecutable": "venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.port", "8610", "--server.headless", "true"],
       "port": 8610
+    },
+    {
+      "name": "gestoria",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "venv\\Scripts\\python.exe -m streamlit run gestorias/app_gestoria.py --server.port %PORT% --server.headless true"],
+      "port": 8509,
+      "autoPort": true
+    },
+    {
+      "name": "paper-trading-test",
+      "runtimeExecutable": "venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "financial_analyzer/alerts_engine/dashboard_paper_trading.py", "--server.port", "8515", "--server.headless", "true"],
+      "port": 8515
     }
   ]
 }

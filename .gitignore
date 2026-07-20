@@ -77,3 +77,6 @@ merakia-web/
 
 # Assets personales (repo es publico — no subir fotos/datos privados)
 assets/
+
+# GestorIA: salida con documentos de clientes (en produccion son datos reales)
+gestorias/salida/
